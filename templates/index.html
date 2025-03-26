@@ -622,6 +622,64 @@
             "Start Location (Postman)": [23.030357, 72.517845], // Same as Satellite
           };
 
+          // Define customer address coordinates for Leaflet geocoding
+          const customerAddresses = {
+            Aditya: {
+              address: "Near Jodhpur Cross Road, Satellite, Ahmedabad - 380015",
+              area: "Satellite",
+              coords: [23.030357, 72.517845],
+            },
+            Vivaan: {
+              address: "Near Bopal Cross Road, Bopal, Ahmedabad - 380058",
+              area: "Bopal",
+              coords: [23.032011, 72.467816],
+            },
+            Aarav: {
+              address: "Near Vastrapur Lake, Vastrapur, Ahmedabad - 380015",
+              area: "Vastrapur",
+              coords: [23.0362554310379, 72.5305526298169],
+            },
+            Meera: {
+              address: "Opposite Dharnidhar Derasar, Paldi, Ahmedabad - 380007",
+              area: "Paldi",
+              coords: [23.013054, 72.562515],
+            },
+            Diya: {
+              address:
+                "Near Thaltej Cross Road, S.G. Highway, Ahmedabad - 380054",
+              area: "Thaltej",
+              coords: [23.049736, 72.511726],
+            },
+            Riya: {
+              address:
+                "Near Navrangpura AMTS Bus Stop, Navrangpura, Ahmedabad - 380009",
+              area: "Navrangpura",
+              coords: [23.036406, 72.561066],
+            },
+            Ananya: {
+              address: "Opposite Rajpath Club, Bodakdev, Ahmedabad - 380054",
+              area: "Bodakdev",
+              coords: [23.0394524, 72.512492],
+            },
+            Aryan: {
+              address: "Near Oganaj Gam, Gota, Ahmedabad - 382481",
+              area: "Gota",
+              coords: [23.104, 72.5399],
+            },
+            Ishaan: {
+              address:
+                "Opposite Rambaug Police Station, Maninagar, Ahmedabad - 380008",
+              area: "Maninagar",
+              coords: [22.99617, 72.599586],
+            },
+            Kabir: {
+              address:
+                "Near Chandkheda Gam Bus Stop, Chandkheda, Ahmedabad - 382424",
+              area: "Chandkheda",
+              coords: [23.11842, 72.586777],
+            },
+          };
+
           // Initialize map centered on Ahmedabad
           const map = L.map("map").setView([23.036406, 72.561066], 12);
 
@@ -662,14 +720,20 @@
               // Extract customer name without parcel count
               let customerName = toName.split(" (")[0].trim();
 
-              // Find the exact case for the customer name in the coordinates object
-              const exactCustomerName =
-                Object.keys(areaCoordinates).find(
-                  (key) => key.toLowerCase() === customerName.toLowerCase()
-                ) || customerName;
+              // Find the coordinates from customerAddresses if available
+              let coords = null;
+              if (customerName in customerAddresses) {
+                coords = customerAddresses[customerName].coords;
+              } else {
+                // Find the exact case for the customer name in the coordinates object
+                const exactCustomerName =
+                  Object.keys(areaCoordinates).find(
+                    (key) => key.toLowerCase() === customerName.toLowerCase()
+                  ) || customerName;
 
-              // Get coordinates for this customer
-              const coords = areaCoordinates[exactCustomerName];
+                // Get coordinates for this customer
+                coords = areaCoordinates[exactCustomerName];
+              }
 
               if (coords && coords.length === 2) {
                 // Check if name contains parcel count information
@@ -702,11 +766,19 @@
                   .bindPopup(popupContent, { maxWidth: 300 });
 
                 // Mark this location as selected and add to waypoints
-                selectedLocations[exactCustomerName] = true;
+                const areaName =
+                  customerName in customerAddresses
+                    ? customerAddresses[customerName].area
+                    : Object.keys(areaCoordinates).find(
+                        (key) =>
+                          key.toLowerCase() === customerName.toLowerCase()
+                      );
+
+                if (areaName) selectedLocations[areaName] = true;
                 waypoints.push(L.latLng(coords[0], coords[1]));
 
                 // Store marker reference
-                markers[exactCustomerName] = {
+                markers[areaName] = {
                   marker: marker,
                   coords: coords,
                   name: toName,
@@ -732,7 +804,17 @@
                         { color: "black", opacity: 0.15, weight: 7 },
                         { color: "#0d6efd", opacity: 0.8, weight: 5 },
                       ],
+                      extendToWaypoints: true,
+                      missingRouteTolerance: 100,
                     },
+                    // Use OSRM as router if available
+                    router: L.Routing.osrm
+                      ? L.Routing.osrm({
+                          serviceUrl:
+                            "https://router.project-osrm.org/route/v1",
+                          profile: "driving",
+                        })
+                      : undefined,
                     createMarker: function () {
                       // Don't create default markers, we have our own
                       return null;
@@ -935,6 +1017,11 @@
                 // Skip the start location as we've already added it
                 if (areaName === "Start Location (Postman)") return;
 
+                // Find customers in this area to include in the popup
+                const customersInArea = Object.entries(customerAddresses)
+                  .filter(([_, data]) => data.area === areaName)
+                  .map(([name, _]) => name);
+
                 const areaIcon = L.divIcon({
                   className: "custom-div-icon",
                   html: `<div style="background-color: #6c757d; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;"></div>`,
@@ -948,6 +1035,13 @@
                 const popupContent = `
                   <div style="text-align: center;">
                     <b>${areaName}</b>
+                    ${
+                      customersInArea.length > 0
+                        ? `<div class="text-muted small mt-1">${customersInArea.join(
+                            ", "
+                          )}</div>`
+                        : ""
+                    }
                     <div class="form-check mt-2">
                       <input class="form-check-input" type="checkbox" id="select-${areaName}" 
                         onchange="toggleLocation('${areaName}')">
@@ -966,6 +1060,7 @@
                   coords: coords,
                   name: areaName,
                   selected: false,
+                  customers: customersInArea,
                 };
               });
 
@@ -1034,6 +1129,32 @@
               // Initialize state
               updateSelectedCount();
 
+              // Preselect at least one location for demo purposes
+              if (
+                Object.values(markers).filter((m) => m.selected).length === 0
+              ) {
+                // Default select Satellite area for demonstration
+                const defaultArea = "Satellite";
+                if (markers[defaultArea]) {
+                  markers[defaultArea].selected = true;
+                  const checkbox = document.getElementById(
+                    `select-${defaultArea}`
+                  );
+                  if (checkbox) checkbox.checked = true;
+
+                  // Update marker appearance
+                  const selectedIcon = L.divIcon({
+                    className: "custom-div-icon",
+                    html: `<div style="background-color: #dc3545; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;"></div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  });
+
+                  markers[defaultArea].marker.setIcon(selectedIcon);
+                  updateSelectedCount();
+                }
+              }
+
               // Add event listener for optimize button
               setTimeout(() => {
                 const optimizeBtn =
@@ -1055,9 +1176,35 @@
 
                     // Create form data for route optimization
                     const formData = new FormData();
-                    selectedLocations.forEach((name) => {
-                      formData.append("selected_customers[]", name);
+
+                    // Get customers from selected areas instead of just area names
+                    let customersToOptimize = [];
+                    selectedLocations.forEach((areaName) => {
+                      const areaInfo = markers[areaName];
+                      if (
+                        areaInfo &&
+                        areaInfo.customers &&
+                        areaInfo.customers.length > 0
+                      ) {
+                        // Add all customers from this area
+                        customersToOptimize = customersToOptimize.concat(
+                          areaInfo.customers
+                        );
+                      } else {
+                        // If no specific customers found, use the area name
+                        customersToOptimize.push(areaName);
+                      }
                     });
+
+                    // Add customers to form data
+                    customersToOptimize.forEach((customer) => {
+                      formData.append("selected_customers[]", customer);
+                    });
+
+                    console.log(
+                      "Optimizing route for customers:",
+                      customersToOptimize
+                    );
 
                     // Call the server to optimize route
                     $.ajax({
