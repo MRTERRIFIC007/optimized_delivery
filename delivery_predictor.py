@@ -26,6 +26,19 @@ class DeliveryPredictor:
             'Ishaan': 'Opposite Rambaug Police Station, Maninagar, Ahmedabad - 380008',
             'Kabir': 'Near Chandkheda Gam Bus Stop, Chandkheda, Ahmedabad - 382424'
         }
+        # Customer fixed areas - each customer belongs to exactly one area
+        self.customer_areas = {
+            'Aditya': 'Satellite',
+            'Vivaan': 'Bopal',
+            'Aarav': 'Vastrapur',
+            'Meera': 'Paldi',
+            'Diya': 'Thaltej',
+            'Riya': 'Navrangpura',
+            'Ananya': 'Bodakdev',
+            'Aryan': 'Gota',
+            'Ishaan': 'Maninagar',
+            'Kabir': 'Chandkheda'
+        }
         # Default postman location
         self.default_location = "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India"
         # Google Maps API key
@@ -351,8 +364,7 @@ class DeliveryPredictor:
     
     def generate_pending_orders(self, num_orders=20):
         """Generate a stack of fake pending orders"""
-        names = self.df['Name'].unique()
-        areas = self.df['Area'].unique()
+        names = list(self.customer_areas.keys())  # Use names from customer_areas
         sizes = self.df['Package Size'].unique()
         days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
@@ -371,7 +383,7 @@ class DeliveryPredictor:
         for _ in range(num_orders):
             name = random.choice(names)
             day = random.choice(delivery_days)
-            area = random.choice(areas)
+            area = self.customer_areas[name]  # Use fixed area for this customer
             size = random.choice(sizes)
             
             order = {
@@ -398,8 +410,14 @@ class DeliveryPredictor:
         """Return the list of pending orders"""
         return self.pending_orders
     
-    def add_order(self, name, delivery_day, area, package_size):
+    def add_order(self, name, delivery_day, area=None, package_size=None):
         """Add a new order to the pending stack"""
+        # Use the fixed area for this customer, ignore the input area parameter
+        area = self.customer_areas.get(name, "Unknown")
+        
+        if package_size is None:
+            package_size = random.choice(['Small', 'Medium', 'Large'])
+            
         order_id = max([o['order_id'] for o in self.pending_orders]) + 1 if self.pending_orders else 10000
         
         order = {

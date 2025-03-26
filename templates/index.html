@@ -133,17 +133,21 @@
                     id="order_name"
                     name="name"
                     required
+                    onchange="updateAreaInfo()"
                   >
-                    <option value="Aditya">Aditya</option>
-                    <option value="Vivaan">Vivaan</option>
-                    <option value="Aarav">Aarav</option>
-                    <option value="Meera">Meera</option>
-                    <option value="Diya">Diya</option>
-                    <option value="Riya">Riya</option>
-                    <option value="Ananya">Ananya</option>
-                    <option value="Aryan">Aryan</option>
-                    <option value="Ishaan">Ishaan</option>
-                    <option value="Kabir">Kabir</option>
+                    <option value="" selected disabled>
+                      Select a customer
+                    </option>
+                    <option value="Aditya">Aditya (Satellite)</option>
+                    <option value="Vivaan">Vivaan (Bopal)</option>
+                    <option value="Aarav">Aarav (Vastrapur)</option>
+                    <option value="Meera">Meera (Paldi)</option>
+                    <option value="Diya">Diya (Thaltej)</option>
+                    <option value="Riya">Riya (Navrangpura)</option>
+                    <option value="Ananya">Ananya (Bodakdev)</option>
+                    <option value="Aryan">Aryan (Gota)</option>
+                    <option value="Ishaan">Ishaan (Maninagar)</option>
+                    <option value="Kabir">Kabir (Chandkheda)</option>
                   </select>
                 </div>
 
@@ -171,19 +175,17 @@
                 </div>
 
                 <div class="mb-3">
-                  <label for="area" class="form-label">Area:</label>
-                  <select class="form-select" id="area" name="area" required>
-                    <option value="Satellite">Satellite</option>
-                    <option value="Bopal">Bopal</option>
-                    <option value="Vastrapur">Vastrapur</option>
-                    <option value="Paldi">Paldi</option>
-                    <option value="Thaltej">Thaltej</option>
-                    <option value="Navrangpura">Navrangpura</option>
-                    <option value="Bodakdev">Bodakdev</option>
-                    <option value="Gota">Gota</option>
-                    <option value="Maninagar">Maninagar</option>
-                    <option value="Chandkheda">Chandkheda</option>
-                  </select>
+                  <label for="customer_area" class="form-label">Area:</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="customer_area"
+                    readonly
+                    disabled
+                  />
+                  <small class="text-muted"
+                    >Area is automatically assigned based on the customer</small
+                  >
                 </div>
 
                 <div class="mb-3">
@@ -331,7 +333,35 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+      // Customer area mapping
+      const customerAreas = {
+        Aditya: "Satellite",
+        Vivaan: "Bopal",
+        Aarav: "Vastrapur",
+        Meera: "Paldi",
+        Diya: "Thaltej",
+        Riya: "Navrangpura",
+        Ananya: "Bodakdev",
+        Aryan: "Gota",
+        Ishaan: "Maninagar",
+        Kabir: "Chandkheda",
+      };
+
+      function updateAreaInfo() {
+        const customerName = document.getElementById("order_name").value;
+        const areaField = document.getElementById("customer_area");
+
+        if (customerName && customerAreas[customerName]) {
+          areaField.value = customerAreas[customerName];
+        } else {
+          areaField.value = "";
+        }
+      }
+
       $(document).ready(function () {
+        // Initialize area display
+        updateAreaInfo();
+
         // Prediction form submission
         $("#predictionForm").submit(function (e) {
           e.preventDefault();
