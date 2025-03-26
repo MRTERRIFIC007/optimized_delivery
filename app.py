@@ -46,10 +46,10 @@ def add_order():
     """Add a new order to the pending stack"""
     name = request.form.get('name')
     delivery_day = request.form.get('delivery_day')
-    area = request.form.get('area')
     package_size = request.form.get('package_size')
     
-    order_id = predictor.add_order(name, delivery_day, area, package_size)
+    # Area is now determined by customer name, so we don't need to pass it
+    order_id = predictor.add_order(name, delivery_day, package_size=package_size)
     
     return jsonify({
         'success': True,

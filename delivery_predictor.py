@@ -8,38 +8,43 @@ import requests
 import itertools
 
 class DeliveryPredictor:
-    def __init__(self):
-        """Initialize the DeliveryPredictor with default values and load dataset"""
-        self.default_location = "Iscon Center, Satellite, Ahmedabad"
-        self.dataset_path = "dataset.csv"
-        self.model = None
-        self.X = None
-        self.y = None
-        
-        # Fixed areas for each customer
-        self.customer_areas = {
-            "Aryan": "Satellite",
-            "Kabir": "Vastrapur",
-            "Ishaan": "Bopal",
-            "Aditya": "Satellite",
-            "Meera": "Navrangpura",
-            "Rohan": "Paldi",
-            "Dev": "Thaltej",
-            "Aanya": "Bodakdev",
-            "Zara": "Gota",
-            "Veer": "Maninagar",
-            "Anaya": "Chandkheda"
+    def __init__(self, dataset_path='dataset.csv'):
+        # Load the dataset
+        self.df = pd.read_csv(dataset_path)
+        # Create success rate maps
+        self.analyze_data()
+        # Customer addresses
+        self.customer_addresses = {
+            'Aditya': 'Near Jodhpur Cross Road, Satellite, Ahmedabad - 380015',
+            'Vivaan': 'Near Bopal Cross Road, Bopal, Ahmedabad - 380058',
+            'Aarav': 'Near Vastrapur Lake, Vastrapur, Ahmedabad - 380015',
+            'Meera': 'Opposite Dharnidhar Derasar, Paldi, Ahmedabad - 380007',
+            'Diya': 'Near Thaltej Cross Road, S.G. Highway, Ahmedabad - 380054',
+            'Riya': 'Near Navrangpura AMTS Bus Stop, Navrangpura, Ahmedabad - 380009',
+            'Ananya': 'Opposite Rajpath Club, Bodakdev, Ahmedabad - 380054',
+            'Aryan': 'Near Oganaj Gam, Gota, Ahmedabad - 382481',
+            'Ishaan': 'Opposite Rambaug Police Station, Maninagar, Ahmedabad - 380008',
+            'Kabir': 'Near Chandkheda Gam Bus Stop, Chandkheda, Ahmedabad - 382424'
         }
-        
-        # Initialize pending orders
-        self.pending_orders = self.generate_pending_orders(20)  # Generate 20 fake pending orders
-        
-        try:
-            self.load_dataset()
-            self.train_model()
-        except Exception as e:
-            print(f"Error during initialization: {e}")
-            print("The predictor will be initialized without a trained model.")
+        # Customer fixed areas - each customer belongs to exactly one area
+        self.customer_areas = {
+            'Aditya': 'Satellite',
+            'Vivaan': 'Bopal',
+            'Aarav': 'Vastrapur',
+            'Meera': 'Paldi',
+            'Diya': 'Thaltej',
+            'Riya': 'Navrangpura',
+            'Ananya': 'Bodakdev',
+            'Aryan': 'Gota',
+            'Ishaan': 'Maninagar',
+            'Kabir': 'Chandkheda'
+        }
+        # Default postman location
+        self.default_location = "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India"
+        # Google Maps API key
+        self.google_maps_api_key = "AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg"
+        # Create a stack of pending orders
+        self.generate_pending_orders(20)  # Generate 20 fake pending orders
         
     def analyze_data(self):
         """Analyze the dataset to find patterns in successful deliveries"""
@@ -152,88 +157,93 @@ class DeliveryPredictor:
         return result
     
     def get_driving_distance(self, origin, destination):
-        """Get driving distance between two locations (realistic mock data for Ahmedabad)"""
-        # Realistic distance data based on areas in Ahmedabad city
+        """Get driving distance between two locations (mock data for demo)"""
+        # Mock distance data based on areas
         area_distances = {
-            ('Satellite', 'Bopal'): {'distance': 9.2, 'duration': 21},
-            ('Satellite', 'Vastrapur'): {'distance': 3.8, 'duration': 12},
-            ('Satellite', 'Paldi'): {'distance': 7.3, 'duration': 18},
-            ('Satellite', 'Thaltej'): {'distance': 4.4, 'duration': 14},
-            ('Satellite', 'Navrangpura'): {'distance': 5.7, 'duration': 16},
-            ('Satellite', 'Bodakdev'): {'distance': 3.5, 'duration': 12},
-            ('Satellite', 'Gota'): {'distance': 11.6, 'duration': 26},
-            ('Satellite', 'Maninagar'): {'distance': 14.1, 'duration': 32},
-            ('Satellite', 'Chandkheda'): {'distance': 16.3, 'duration': 38},
+            ('Satellite', 'Bopal'): {'distance': 7.5, 'duration': 15},
+            ('Satellite', 'Vastrapur'): {'distance': 3.2, 'duration': 10},
+            ('Satellite', 'Paldi'): {'distance': 6.1, 'duration': 12},
+            ('Satellite', 'Thaltej'): {'distance': 5.3, 'duration': 11},
+            ('Satellite', 'Navrangpura'): {'distance': 4.8, 'duration': 14},
+            ('Satellite', 'Bodakdev'): {'distance': 4.1, 'duration': 9},
+            ('Satellite', 'Gota'): {'distance': 10.2, 'duration': 22},
+            ('Satellite', 'Maninagar'): {'distance': 12.5, 'duration': 28},
+            ('Satellite', 'Chandkheda'): {'distance': 14.0, 'duration': 30},
             
-            ('Bopal', 'Vastrapur'): {'distance': 6.7, 'duration': 18},
-            ('Bopal', 'Paldi'): {'distance': 11.8, 'duration': 28},
-            ('Bopal', 'Thaltej'): {'distance': 8.3, 'duration': 20},
-            ('Bopal', 'Navrangpura'): {'distance': 10.4, 'duration': 24},
-            ('Bopal', 'Bodakdev'): {'distance': 8.1, 'duration': 20},
-            ('Bopal', 'Gota'): {'distance': 9.8, 'duration': 22},
-            ('Bopal', 'Maninagar'): {'distance': 18.2, 'duration': 40},
-            ('Bopal', 'Chandkheda'): {'distance': 21.4, 'duration': 45},
+            ('Bopal', 'Vastrapur'): {'distance': 8.3, 'duration': 18},
+            ('Bopal', 'Paldi'): {'distance': 9.5, 'duration': 20},
+            ('Bopal', 'Thaltej'): {'distance': 6.7, 'duration': 14},
+            ('Bopal', 'Navrangpura'): {'distance': 9.0, 'duration': 19},
+            ('Bopal', 'Bodakdev'): {'distance': 7.2, 'duration': 16},
+            ('Bopal', 'Gota'): {'distance': 8.8, 'duration': 19},
+            ('Bopal', 'Maninagar'): {'distance': 15.3, 'duration': 35},
+            ('Bopal', 'Chandkheda'): {'distance': 17.2, 'duration': 40},
             
-            ('Vastrapur', 'Paldi'): {'distance': 5.2, 'duration': 15},
-            ('Vastrapur', 'Thaltej'): {'distance': 3.8, 'duration': 13},
-            ('Vastrapur', 'Navrangpura'): {'distance': 3.6, 'duration': 12},
-            ('Vastrapur', 'Bodakdev'): {'distance': 1.9, 'duration': 8},
-            ('Vastrapur', 'Gota'): {'distance': 10.4, 'duration': 25},
-            ('Vastrapur', 'Maninagar'): {'distance': 12.6, 'duration': 30},
-            ('Vastrapur', 'Chandkheda'): {'distance': 15.7, 'duration': 35},
+            ('Vastrapur', 'Paldi'): {'distance': 5.4, 'duration': 11},
+            ('Vastrapur', 'Thaltej'): {'distance': 4.2, 'duration': 9},
+            ('Vastrapur', 'Navrangpura'): {'distance': 3.1, 'duration': 7},
+            ('Vastrapur', 'Bodakdev'): {'distance': 2.5, 'duration': 6},
+            ('Vastrapur', 'Gota'): {'distance': 9.3, 'duration': 20},
+            ('Vastrapur', 'Maninagar'): {'distance': 11.2, 'duration': 25},
+            ('Vastrapur', 'Chandkheda'): {'distance': 13.5, 'duration': 30},
             
-            ('Paldi', 'Thaltej'): {'distance': 7.9, 'duration': 22},
-            ('Paldi', 'Navrangpura'): {'distance': 3.8, 'duration': 14},
-            ('Paldi', 'Bodakdev'): {'distance': 6.8, 'duration': 18},
-            ('Paldi', 'Gota'): {'distance': 14.5, 'duration': 34},
-            ('Paldi', 'Maninagar'): {'distance': 7.5, 'duration': 20},
-            ('Paldi', 'Chandkheda'): {'distance': 16.8, 'duration': 38},
+            ('Paldi', 'Thaltej'): {'distance': 8.3, 'duration': 18},
+            ('Paldi', 'Navrangpura'): {'distance': 4.2, 'duration': 9},
+            ('Paldi', 'Bodakdev'): {'distance': 7.4, 'duration': 15},
+            ('Paldi', 'Gota'): {'distance': 12.5, 'duration': 25},
+            ('Paldi', 'Maninagar'): {'distance': 6.3, 'duration': 14},
+            ('Paldi', 'Chandkheda'): {'distance': 15.1, 'duration': 35},
             
-            ('Thaltej', 'Navrangpura'): {'distance': 6.4, 'duration': 18},
-            ('Thaltej', 'Bodakdev'): {'distance': 2.3, 'duration': 10},
-            ('Thaltej', 'Gota'): {'distance': 7.2, 'duration': 18},
-            ('Thaltej', 'Maninagar'): {'distance': 15.3, 'duration': 35},
-            ('Thaltej', 'Chandkheda'): {'distance': 12.4, 'duration': 28},
+            ('Thaltej', 'Navrangpura'): {'distance': 5.5, 'duration': 12},
+            ('Thaltej', 'Bodakdev'): {'distance': 2.8, 'duration': 6},
+            ('Thaltej', 'Gota'): {'distance': 6.1, 'duration': 13},
+            ('Thaltej', 'Maninagar'): {'distance': 14.2, 'duration': 30},
+            ('Thaltej', 'Chandkheda'): {'distance': 11.3, 'duration': 24},
             
-            ('Navrangpura', 'Bodakdev'): {'distance': 5.1, 'duration': 15},
-            ('Navrangpura', 'Gota'): {'distance': 12.8, 'duration': 30},
-            ('Navrangpura', 'Maninagar'): {'distance': 9.2, 'duration': 24},
-            ('Navrangpura', 'Chandkheda'): {'distance': 13.6, 'duration': 32},
+            ('Navrangpura', 'Bodakdev'): {'distance': 4.6, 'duration': 10},
+            ('Navrangpura', 'Gota'): {'distance': 10.8, 'duration': 22},
+            ('Navrangpura', 'Maninagar'): {'distance': 8.5, 'duration': 18},
+            ('Navrangpura', 'Chandkheda'): {'distance': 11.2, 'duration': 25},
             
-            ('Bodakdev', 'Gota'): {'distance': 8.7, 'duration': 22},
-            ('Bodakdev', 'Maninagar'): {'distance': 14.8, 'duration': 34},
-            ('Bodakdev', 'Chandkheda'): {'distance': 14.3, 'duration': 32},
+            ('Bodakdev', 'Gota'): {'distance': 7.5, 'duration': 16},
+            ('Bodakdev', 'Maninagar'): {'distance': 13.1, 'duration': 28},
+            ('Bodakdev', 'Chandkheda'): {'distance': 12.3, 'duration': 26},
             
-            ('Gota', 'Maninagar'): {'distance': 21.3, 'duration': 48},
-            ('Gota', 'Chandkheda'): {'distance': 11.2, 'duration': 24},
+            ('Gota', 'Maninagar'): {'distance': 18.5, 'duration': 40},
+            ('Gota', 'Chandkheda'): {'distance': 9.2, 'duration': 20},
             
-            ('Maninagar', 'Chandkheda'): {'distance': 22.6, 'duration': 52}
+            ('Maninagar', 'Chandkheda'): {'distance': 19.6, 'duration': 45},
         }
         
-        # Extract area names from addresses
+        # Extract area names from addresses by matching customer names
         origin_area = None
         destination_area = None
-        
-        for area in ['Satellite', 'Bopal', 'Vastrapur', 'Paldi', 'Thaltej', 'Navrangpura', 
-                     'Bodakdev', 'Gota', 'Maninagar', 'Chandkheda']:
-            if area in origin:
-                origin_area = area
-            if area in destination:
-                destination_area = area
         
         # If starting from default location
         if origin == self.default_location:
             origin_area = 'Satellite'  # Iscon Center is in Satellite area
+        else:
+            # Try to match a customer name in the origin address
+            for name, address in self.customer_addresses.items():
+                if address == origin and name in self.customer_areas:
+                    origin_area = self.customer_areas[name]
+                    break
+        
+        # Try to match a customer name in the destination address
+        for name, address in self.customer_addresses.items():
+            if address == destination and name in self.customer_areas:
+                destination_area = self.customer_areas[name]
+                break
         
         # Look up distance in mock data
         if origin_area and destination_area:
             if origin_area == destination_area:
-                # Within same area (more realistic values)
+                # Within same area
                 return {
-                    'distance': 2.3,
-                    'duration': 8,
-                    'text_distance': '2.3 km',
-                    'text_duration': '8 mins'
+                    'distance': 1.5,
+                    'duration': 5,
+                    'text_distance': '1.5 km',
+                    'text_duration': '5 mins'
                 }
             
             key = (origin_area, destination_area)
@@ -258,10 +268,10 @@ class DeliveryPredictor:
         
         # Fallback to default values
         return {
-            'distance': 12.5,
-            'duration': 30,
-            'text_distance': '12.5 km',
-            'text_duration': '30 mins'
+            'distance': 10,
+            'duration': 20,
+            'text_distance': '10 km',
+            'text_duration': '20 mins'
         }
     
     def optimize_delivery_route(self, customer_names):
@@ -269,13 +279,17 @@ class DeliveryPredictor:
         if not customer_names:
             return []
         
-        # Get customer addresses
+        # Get customer addresses and make sure areas are set correctly
         addresses = []
         for name in customer_names:
-            if name in self.customer_areas:
+            if name in self.customer_addresses:
+                # Make sure each customer has the right fixed area
+                area = self.customer_areas.get(name)
+                
                 addresses.append({
                     'name': name,
-                    'address': self.customer_areas[name]
+                    'area': area,
+                    'address': self.customer_addresses[name]
                 })
         
         # If only one customer, no need for optimization
@@ -357,149 +371,82 @@ class DeliveryPredictor:
             'details': route_details
         }
     
-    def generate_pending_orders(self, count=20):
-        """Generate random pending orders with fixed customer-area associations"""
-        now = datetime.now()
-        today = now.strftime('%A')
-        tomorrow = (now + timedelta(days=1)).strftime('%A')
-        day_after = (now + timedelta(days=2)).strftime('%A')
+    def generate_pending_orders(self, num_orders=20):
+        """Generate a stack of fake pending orders"""
+        names = list(self.customer_areas.keys())  # Use names from customer_areas
+        sizes = self.df['Package Size'].unique()
+        days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
-        available_days = [today, tomorrow, day_after]
-        available_time_slots = [
-            "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", 
-            "4 PM", "5 PM", "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM"
-        ]
+        # Get current day of week
+        current_day = datetime.now().strftime('%A')
+        tomorrow = (datetime.now() + timedelta(days=1)).strftime('%A')
+        day_after = (datetime.now() + timedelta(days=2)).strftime('%A')
         
-        current_hour = now.hour
-        today_slots = [slot for slot in available_time_slots 
-                      if (int(slot.split()[0]) > current_hour + 1) or 
-                         (int(slot.split()[0]) <= 12 and "PM" in slot and current_hour < 12)]
+        # Generate orders for today, tomorrow, and day after tomorrow
+        delivery_days = [current_day, tomorrow, day_after]
         
-        orders = []
-        order_id_start = 1001
-        customers = list(self.customer_areas.keys())
+        # Create a stack of pending orders
+        self.pending_orders = []
+        order_id = 10000
         
-        for i in range(count):
-            customer = random.choice(customers)
-            area = self.customer_areas[customer]
+        for _ in range(num_orders):
+            name = random.choice(names)
+            day = random.choice(delivery_days)
+            area = self.customer_areas[name]  # Use fixed area for this customer
+            size = random.choice(sizes)
             
-            # More realistic order date/time distribution
-            if random.random() < 0.3:  # 30% chance for today
-                day = today
-                time_slot = random.choice(today_slots if today_slots else available_time_slots[3:])  # Later slots if today
-            elif random.random() < 0.6:  # 30% chance for tomorrow
-                day = tomorrow
-                time_slot = random.choice(available_time_slots)
-            else:  # 40% chance for day after tomorrow
-                day = day_after
-                time_slot = random.choice(available_time_slots)
+            order = {
+                'order_id': order_id,
+                'name': name,
+                'delivery_day': day,
+                'area': area,
+                'address': self.customer_addresses.get(name, "Address not available"),
+                'package_size': size,
+                'status': 'Pending',
+                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
             
-            # Create time-based order distribution patterns
-            hour = int(time_slot.split()[0])
-            if "PM" in time_slot and hour != 12:
-                hour += 12
+            self.pending_orders.append(order)
+            order_id += 1
             
-            # More orders in peak hours (lunch and dinner times)
-            if (hour >= 12 and hour <= 14) or (hour >= 18 and hour <= 21):
-                if random.random() > 0.7:  # Skip this iteration sometimes to avoid too many peak orders
-                    continue
+        # Save pending orders to a JSON file
+        with open('pending_orders.json', 'w') as f:
+            json.dump(self.pending_orders, f, indent=2)
             
-            order_id = f"ORD{order_id_start + i}"
-            
-            # Vary the order status
-            if day == today and time_slot in today_slots[:2]:
-                status = "Ready for Delivery"
-            else:
-                status = "Pending"
-            
-            # Apply some time-based patterns for specific customers
-            if customer == "Aryan" and "PM" not in time_slot and random.random() > 0.7:
-                continue  # Aryan usually orders in the evening
-            
-            if customer == "Meera" and hour >= 22 and random.random() > 0.6:
-                continue  # Meera rarely orders very late
-            
-            orders.append({
-                "order_id": order_id,
-                "customer": customer,
-                "day": day,
-                "time": time_slot,
-                "area": area,
-                "status": status
-            })
-        
-        # Ensure we have exactly the requested number of orders
-        while len(orders) < count:
-            customer = random.choice(customers)
-            area = self.customer_areas[customer]
-            day = random.choice(available_days)
-            
-            if day == today:
-                time_slot = random.choice(today_slots if today_slots else available_time_slots[3:])
-            else:
-                time_slot = random.choice(available_time_slots)
-            
-            order_id = f"ORD{order_id_start + len(orders)}"
-            
-            orders.append({
-                "order_id": order_id,
-                "customer": customer,
-                "day": day,
-                "time": time_slot,
-                "area": area,
-                "status": "Pending"
-            })
-        
-        return orders[:count]  # Ensure exactly 'count' orders are returned
+        print(f"Generated {num_orders} pending orders")
     
     def get_pending_orders(self):
         """Return the list of pending orders"""
         return self.pending_orders
     
-    def add_order(self, customer, day, time, area=None):
-        """Add a new order to pending orders"""
-        # Use the fixed area for the customer, ignoring the input area parameter
-        assigned_area = self.customer_areas.get(customer)
-        if not assigned_area:
-            return {"error": f"Customer {customer} not found in the system."}
+    def add_order(self, name, delivery_day, package_size=None):
+        """Add a new order to the pending stack"""
+        # Use the fixed area for this customer
+        area = self.customer_areas.get(name, "Unknown")
         
-        now = datetime.now()
-        today = now.strftime('%A')
-        tomorrow = (now + timedelta(days=1)).strftime('%A')
-        day_after = (now + timedelta(days=2)).strftime('%A')
+        if package_size is None:
+            package_size = random.choice(['Small', 'Medium', 'Large'])
+            
+        order_id = max([o['order_id'] for o in self.pending_orders]) + 1 if self.pending_orders else 10000
         
-        if day not in [today, tomorrow, day_after]:
-            return {"error": f"Invalid day selected. Please choose from {today}, {tomorrow}, or {day_after}."}
-        
-        # Basic time validation
-        valid_times = ["9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", 
-                       "4 PM", "5 PM", "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM"]
-        if time not in valid_times:
-            return {"error": f"Invalid time selected. Please choose from {', '.join(valid_times)}."}
-        
-        # If order is for today, check if time has already passed
-        if day == today:
-            order_hour = int(time.split()[0])
-            if "PM" in time and order_hour != 12:
-                order_hour += 12
-            if order_hour <= now.hour:
-                return {"error": f"Cannot place an order for a time that has already passed."}
-        
-        # Generate a new order ID
-        order_id = f"ORD{random.randint(1000, 9999)}"
-        
-        # Add the order to the pending orders
-        new_order = {
-            "order_id": order_id,
-            "customer": customer,
-            "day": day,
-            "time": time,
-            "area": assigned_area,
-            "status": "Pending"
+        order = {
+            'order_id': order_id,
+            'name': name,
+            'delivery_day': delivery_day,
+            'area': area,
+            'address': self.customer_addresses.get(name, "Address not available"),
+            'package_size': package_size,
+            'status': 'Pending',
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
-        # Return the new order details
-        return {"success": True, "order": new_order}
+        self.pending_orders.append(order)
+        
+        # Update JSON file
+        with open('pending_orders.json', 'w') as f:
+            json.dump(self.pending_orders, f, indent=2)
+            
+        return order_id
     
     def mark_delivered(self, order_id, success=True):
         """Mark an order as delivered"""
@@ -511,9 +458,10 @@ class DeliveryPredictor:
                 # Add to dataset for future predictions
                 new_entry = {
                     'Name': order['name'],
-                    'Day of Delivery Attempt': order['day'],
-                    'Time': order['time'],
+                    'Day of Delivery Attempt': order['delivery_day'],
+                    'Time': datetime.now().strftime('%-I %p').replace(' 0', ' '),  # Format like "2 PM"
                     'Area': order['area'],
+                    'Package Size': order['package_size'],
                     'Delivery Status': status
                 }
                 
@@ -535,73 +483,7 @@ class DeliveryPredictor:
     def get_todays_orders(self):
         """Get orders scheduled for today"""
         current_day = datetime.now().strftime('%A')
-        return [order for order in self.pending_orders if order['day'] == current_day]
-    
-    def load_dataset(self):
-        """Load the dataset and preprocess it for modeling"""
-        try:
-            self.df = pd.read_csv(self.dataset_path)
-            # Perform basic data analysis
-            self.analyze_data()
-            print(f"Dataset loaded successfully with {len(self.df)} records.")
-        except Exception as e:
-            print(f"Error loading dataset: {e}")
-            # Create an empty dataframe with the right columns
-            self.df = pd.DataFrame(columns=['Name', 'Day of Delivery Attempt', 'Time', 'Area', 'Delivery Status'])
-    
-    def train_model(self):
-        """Train a simple prediction model based on historical data"""
-        if len(self.df) == 0:
-            print("Not enough data to train a model.")
-            return
-        
-        try:
-            # Extract features from the dataset
-            features = []
-            labels = []
-            
-            for _, row in self.df.iterrows():
-                # Create a feature vector
-                name = row['Name']
-                day = row['Day of Delivery Attempt']
-                time = row['Time']
-                area = row['Area']
-                
-                # Convert time to hour (numeric)
-                hour = int(time.split()[0])
-                if "PM" in time and hour != 12:
-                    hour += 12
-                elif "AM" in time and hour == 12:
-                    hour = 0
-                
-                # One-hot encode day of week
-                days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-                day_one_hot = [1 if d == day else 0 for d in days_of_week]
-                
-                # Create feature vector
-                feature = [hour] + day_one_hot
-                features.append(feature)
-                
-                # Label is 1 for success, 0 for failure
-                label = 1 if row['Delivery Status'] == 'Success' else 0
-                labels.append(label)
-            
-            # Convert to numpy arrays
-            self.X = np.array(features)
-            self.y = np.array(labels)
-            
-            # Train a simple model (this is a placeholder - in a real system we would use scikit-learn)
-            self.model = {
-                'trained': True,
-                'num_samples': len(self.X)
-            }
-            
-            print(f"Model trained successfully on {len(self.X)} samples.")
-        except Exception as e:
-            print(f"Error training model: {e}")
-            self.model = None
-            self.X = None
-            self.y = None
+        return [order for order in self.pending_orders if order['delivery_day'] == current_day]
 
 # Test the predictor
 if __name__ == "__main__":
@@ -621,7 +503,7 @@ if __name__ == "__main__":
     # Print pending orders
     print("\nPending Orders:")
     for order in predictor.get_pending_orders()[:5]:  # Show first 5 orders
-        print(f"Order #{order['order_id']}: {order['customer']} - {order['day']} - {order['area']} - {order['status']}")
+        print(f"Order #{order['order_id']}: {order['name']} - {order['delivery_day']} - {order['area']} - {order['status']}")
     
     # Test route optimization
     print("\nOptimal Route Test:")
