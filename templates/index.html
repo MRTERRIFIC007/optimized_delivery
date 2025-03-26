@@ -1270,6 +1270,27 @@
                 };
                 backToStartControl.addTo(map);
 
+                // Function to return to starting point (defined within initRouteMap for proper scope)
+                function returnToStart() {
+                  try {
+                    if (startMarker && startMarker._latlng) {
+                      map.flyTo(startMarker._latlng, 15);
+                      if (startMarker.openPopup) {
+                        startMarker.openPopup();
+                      }
+                    } else {
+                      console.warn(
+                        "Start marker not properly initialized, flying to default center"
+                      );
+                      map.flyTo([23.0225, 72.5714], 15);
+                    }
+                  } catch (error) {
+                    console.error("Error in returnToStart function:", error);
+                    // Fallback to Ahmedabad center
+                    map.flyTo([23.0225, 72.5714], 15);
+                  }
+                }
+
                 // Add event listener for the back to start button
                 setTimeout(() => {
                   const backToStartBtn =
@@ -1595,27 +1616,6 @@
                 }
               }, 100);
             }
-          }
-        }
-
-        // Function to return to starting point
-        function returnToStart() {
-          try {
-            if (startMarker && startMarker._latlng) {
-              map.flyTo(startMarker._latlng, 15);
-              if (startMarker.openPopup) {
-                startMarker.openPopup();
-              }
-            } else {
-              console.warn(
-                "Start marker not properly initialized, flying to default center"
-              );
-              map.flyTo([23.0225, 72.5714], 15);
-            }
-          } catch (error) {
-            console.error("Error in returnToStart function:", error);
-            // Fallback to Ahmedabad center
-            map.flyTo([23.0225, 72.5714], 15);
           }
         }
       });
