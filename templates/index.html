@@ -60,6 +60,31 @@
         padding: 15px;
         margin-top: 20px;
       }
+      /* Leaflet custom styles */
+      #map {
+        height: 400px;
+        width: 100%;
+        border-radius: 5px;
+      }
+      .custom-div-icon div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+      .leaflet-popup-content {
+        margin: 10px;
+      }
+      .leaflet-popup-content-wrapper {
+        border-radius: 5px;
+      }
+      .route-summary {
+        font-size: 14px;
+      }
+      /* Hide Leaflet Routing Machine control panel but keep the route */
+      .leaflet-routing-container {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
@@ -366,6 +391,8 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
     <script>
       // Customer area mapping
       const customerAreas = {
@@ -545,6 +572,14 @@
             "Start Location (Postman)": [23.030357, 72.517845], // Same as Satellite
           };
 
+          // Create custom icons
+          const startIcon = L.divIcon({
+            className: "custom-div-icon",
+            html: `<div style="background-color: #198754; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">S</div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+          });
+
           // Initialize map centered on Ahmedabad
           const map = L.map("map").setView([23.036406, 72.561066], 12);
 
@@ -552,151 +587,211 @@
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             attribution:
               '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
           }).addTo(map);
 
-          // Markers and route
+          // Process route data
           if (routeData && routeData.details && routeData.details.length > 0) {
             const points = [];
+            const latLngs = [];
             const markers = [];
+            const waypointLabels = {};
 
-            // Add markers for each stop
+            console.log("Route data details:", routeData.details);
+
+            // Process start location
+            const startName = routeData.details[0].from;
+            const startCoords = areaCoordinates["Start Location (Postman)"];
+            if (startCoords) {
+              // Add start marker
+              const startMarker = L.marker(startCoords, { icon: startIcon })
+                .addTo(map)
+                .bindPopup(
+                  `<b>Start:</b> ${startName}<br>${routeData.details[0].from_address}`
+                );
+
+              points.push({
+                coords: startCoords,
+                name: startName,
+                address: routeData.details[0].from_address,
+                isStart: true,
+              });
+
+              latLngs.push(L.latLng(startCoords[0], startCoords[1]));
+            }
+
+            // Process each delivery location
             routeData.details.forEach((leg, index) => {
-              // Add "from" marker for the first leg (start location)
-              if (index === 0) {
-                const fromName = leg.from;
-                // Get coordinates or default to Satellite if not found
-                const startCoords = areaCoordinates["Start Location (Postman)"];
-
-                // Only add marker if coordinates are valid
-                if (startCoords && startCoords.length === 2) {
-                  // Create a custom icon for the start location
-                  const startIcon = L.divIcon({
-                    className: "custom-div-icon",
-                    html: `<div style="background-color: #198754; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">S</div>`,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15],
-                  });
-
-                  const marker = L.marker(startCoords, { icon: startIcon })
-                    .addTo(map)
-                    .bindPopup(
-                      `<b>Start:</b> ${fromName}<br>${leg.from_address}<br><b>Next stop:</b> ${leg.to}`
-                    );
-
-                  markers.push(marker);
-                  points.push(startCoords);
-                }
-              }
-
-              // Add "to" marker for all legs
               const toName = leg.to;
-              const customerName = toName.split(" (")[0];
+              // Extract customer name without parcel count
+              let customerName = toName.split(" (")[0].trim();
 
-              // Get coordinates for this stop, or use a default if not found
-              const stopCoords = areaCoordinates[customerName];
+              // Find the exact case for the customer name in the coordinates object
+              const exactCustomerName =
+                Object.keys(areaCoordinates).find(
+                  (key) => key.toLowerCase() === customerName.toLowerCase()
+                ) || customerName;
 
-              // Only add marker if coordinates are valid
-              if (stopCoords && stopCoords.length === 2) {
-                // Create a custom icon for delivery stops with sequential numbering
+              // Get coordinates for this customer
+              const coords = areaCoordinates[exactCustomerName];
+
+              if (coords && coords.length === 2) {
+                console.log(
+                  `Found coordinates for ${customerName}: [${coords[0]}, ${coords[1]}]`
+                );
+
+                // Create icon with number
                 const deliveryIcon = L.divIcon({
                   className: "custom-div-icon",
-                  html: `<div style="background-color: #0d6efd; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">${
+                  html: `<div style="background-color: #0d6efd; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">${
                     index + 1
                   }</div>`,
-                  iconSize: [26, 26],
-                  iconAnchor: [13, 13],
+                  iconSize: [28, 28],
+                  iconAnchor: [14, 14],
+                  popupAnchor: [0, -10],
                 });
 
-                // Add information about parcel count if applicable
-                let popupContent = `<b>Stop ${index + 1}:</b> ${toName}<br>`;
+                // Check if name contains parcel count
+                const hasMultipleParcels = toName.includes("parcels");
+
+                // Add popup content
+                let popupContent = `<div style="text-align: center;"><b>${toName}</b></div>`;
+                popupContent += `<hr style="margin: 5px 0;">`;
                 popupContent += `<b>Address:</b> ${leg.to_address}<br>`;
                 popupContent += `<b>Distance:</b> ${leg.distance}<br>`;
                 popupContent += `<b>Duration:</b> ${leg.duration}`;
 
-                const marker = L.marker(stopCoords, { icon: deliveryIcon })
+                // Create marker
+                const marker = L.marker(coords, { icon: deliveryIcon })
                   .addTo(map)
-                  .bindPopup(popupContent);
+                  .bindPopup(popupContent, { maxWidth: 300 });
 
                 markers.push(marker);
-                points.push(stopCoords);
+
+                // Add to points array
+                points.push({
+                  coords: coords,
+                  name: toName,
+                  address: leg.to_address,
+                  isStart: false,
+                  index: index + 1,
+                });
+
+                // Add to latLngs for routing
+                latLngs.push(L.latLng(coords[0], coords[1]));
+
+                // Store label for waypoint
+                waypointLabels[`${coords[0]},${coords[1]}`] = `${
+                  index + 1
+                }: ${customerName}`;
+              } else {
+                console.warn(
+                  `Could not find coordinates for customer: ${customerName}`
+                );
               }
             });
 
-            // Only create polylines if we have at least 2 valid points
-            if (points.length >= 2) {
-              // Create a polyline with arrows to show the route direction
-              const arrowPolyline = L.polyline(points, {
+            // Check if we have enough points to create a route
+            if (latLngs.length >= 2) {
+              console.log("Creating route with points:", latLngs);
+
+              // Create polyline for the route
+              const routeLine = L.polyline(latLngs, {
                 color: "#0d6efd",
                 weight: 4,
-                opacity: 0.7,
-                dashArray: "10, 10",
-                dashOffset: "0",
+                opacity: 0.85,
+                lineCap: "round",
+                lineJoin: "round",
               }).addTo(map);
 
-              // Add a solid line beneath for better visibility
-              const solidPolyline = L.polyline(points, {
-                color: "#0d6efd",
-                weight: 2,
-                opacity: 0.9,
-              }).addTo(map);
+              // Add directional arrows to the route
+              const arrowDecorator = L.polylineDecorator(routeLine, {
+                patterns: [
+                  {
+                    offset: "10%",
+                    repeat: "25%",
+                    symbol: L.Symbol.arrowHead({
+                      pixelSize: 12,
+                      headAngle: 45,
+                      polygon: true,
+                      pathOptions: {
+                        color: "#0d6efd",
+                        fillColor: "#0d6efd",
+                        fillOpacity: 1,
+                        weight: 0,
+                      },
+                    }),
+                  },
+                ],
+              });
 
-              // Add arrows to indicate direction
-              const arrowHeads = [];
-              for (let i = 0; i < points.length - 1; i++) {
-                const p1 = points[i];
-                const p2 = points[i + 1];
+              // Fit bounds to show all markers
+              map.fitBounds(routeLine.getBounds().pad(0.2));
 
-                // Ensure both points are valid before calculating midpoint
-                if (p1 && p2 && p1.length === 2 && p2.length === 2) {
-                  // Calculate midpoint for arrow
-                  const midX = (p1[0] + p2[0]) / 2;
-                  const midY = (p1[1] + p2[1]) / 2;
+              // Create route summary
+              const summaryControl = L.control({ position: "bottomright" });
+              summaryControl.onAdd = function (map) {
+                const div = L.DomUtil.create("div", "route-summary");
+                div.innerHTML = `
+                  <div style="background-color: white; padding: 8px; border-radius: 5px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); max-width: 250px;">
+                    <div style="font-weight: bold; margin-bottom: 5px; color: #0d6efd;">Delivery Route Summary</div>
+                    <div><b>Total Distance:</b> ${routeData.total_distance}</div>
+                    <div><b>Number of Stops:</b> ${markers.length}</div>
+                    <div style="font-size: 0.9em; margin-top: 5px; color: #666;">Click markers for details</div>
+                  </div>
+                `;
+                return div;
+              };
+              summaryControl.addTo(map);
 
-                  // Calculate angle
-                  const angle =
-                    (Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180) / Math.PI;
-
-                  // Create arrow marker
-                  const arrowIcon = L.divIcon({
-                    className: "arrow-icon",
-                    html: `<div style="transform: rotate(${
-                      angle + 90
-                    }deg); color: #0d6efd;">➤</div>`,
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10],
-                  });
-
-                  const arrowMarker = L.marker([midX, midY], {
-                    icon: arrowIcon,
-                    interactive: false,
+              // Add a route path display with Leaflet Routing Machine
+              try {
+                // Try to add the routing visual if the plugin is available
+                if (typeof L.Routing !== "undefined") {
+                  const routingControl = L.Routing.control({
+                    waypoints: latLngs,
+                    routeWhileDragging: false,
+                    showAlternatives: false,
+                    fitSelectedRoutes: false,
+                    show: false, // Don't show the instructions panel
+                    lineOptions: {
+                      styles: [
+                        { color: "black", opacity: 0.15, weight: 7 },
+                        { color: "#0d6efd", opacity: 0.8, weight: 5 },
+                      ],
+                    },
+                    createMarker: function (i, waypoint, n) {
+                      // Don't create markers, we already have our custom ones
+                      return null;
+                    },
                   }).addTo(map);
-                  arrowHeads.push(arrowMarker);
+
+                  // Hide the routing control container since we don't need it
+                  setTimeout(() => {
+                    const routingContainer = document.querySelector(
+                      ".leaflet-routing-container"
+                    );
+                    if (routingContainer) {
+                      routingContainer.style.display = "none";
+                    }
+                  }, 100);
+                } else {
+                  console.log(
+                    "Leaflet Routing Machine not available, using polyline instead"
+                  );
                 }
+              } catch (e) {
+                console.warn("Error initializing Leaflet Routing Machine:", e);
+                // Polyline is already added as a fallback
               }
-
-              // Fit the map to show all markers with padding
-              if (points.length > 0) {
-                const bounds = L.latLngBounds(points);
-                map.fitBounds(bounds.pad(0.2));
-              }
-            } else if (points.length === 1) {
-              // If only one point, center on it
-              map.setView(points[0], 14);
+            } else if (latLngs.length === 1) {
+              // If only one point, center the map on it
+              map.setView(latLngs[0], 15);
+            } else {
+              console.warn("No valid points found for mapping");
             }
-
-            // Show total distance and route information in a custom control
-            const routeInfoControl = L.control({ position: "bottomright" });
-            routeInfoControl.onAdd = function (map) {
-              const div = L.DomUtil.create("div", "route-info-control");
-              div.innerHTML = `
-                <div style="background-color: white; padding: 8px; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.2);">
-                  <div><b>Total Distance:</b> ${routeData.total_distance}</div>
-                  <div><b>Stops:</b> ${routeData.route.length}</div>
-                </div>
-              `;
-              return div;
-            };
-            routeInfoControl.addTo(map);
+          } else {
+            console.warn("No route data available");
           }
         }
       });
