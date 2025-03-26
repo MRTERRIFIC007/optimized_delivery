@@ -728,7 +728,37 @@
           };
 
           // Initialize map centered on postman's location (Satellite)
-          const postmanLocation = areaCoordinates["Start Location (Postman)"];
+          const defaultCenter = [23.0225, 72.5714]; // Ahmedabad center as fallback
+          let postmanLocation;
+
+          try {
+            // Get postman location with validation
+            const rawLocation = areaCoordinates["Start Location (Postman)"];
+            if (
+              rawLocation &&
+              Array.isArray(rawLocation) &&
+              rawLocation.length === 2 &&
+              !isNaN(parseFloat(rawLocation[0])) &&
+              !isNaN(parseFloat(rawLocation[1]))
+            ) {
+              // Parse as floats for stability
+              postmanLocation = [
+                parseFloat(rawLocation[0]),
+                parseFloat(rawLocation[1]),
+              ];
+            } else {
+              console.warn(
+                "Invalid postman location in data, using default:",
+                rawLocation
+              );
+              postmanLocation = defaultCenter;
+            }
+          } catch (error) {
+            console.error("Error setting postman location:", error);
+            postmanLocation = defaultCenter;
+          }
+
+          // Create the map with validated location
           const map = L.map("map").setView(postmanLocation, 15);
 
           // Set max bounds to Ahmedabad region to prevent excessive panning
@@ -755,42 +785,54 @@
           const selectedLocations = {};
           let waypoints = [];
 
-          // Add start location marker
-          const startLocation = areaCoordinates["Start Location (Postman)"];
-          const startMarker = L.marker(startLocation, { icon: startIcon })
-            .addTo(map)
-            .bindPopup(
-              '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Satellite</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">All routes start here</div>'
+          // Add start location marker (with validation)
+          let startMarker;
+          try {
+            const startLocation = L.latLng(
+              postmanLocation[0],
+              postmanLocation[1]
             );
+            startMarker = L.marker(startLocation, { icon: startIcon })
+              .addTo(map)
+              .bindPopup(
+                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Satellite</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">All routes start here</div>'
+              );
 
-          // Open postman popup by default
-          startMarker.openPopup();
+            // Open postman popup by default
+            startMarker.openPopup();
 
-          // Add a circle around the starting location
-          L.circle(startLocation, {
-            color: "#198754",
-            fillColor: "#198754",
-            fillOpacity: 0.15,
-            radius: 200,
-            weight: 2,
-          }).addTo(map);
+            // Add a circle around the starting location
+            L.circle(startLocation, {
+              color: "#198754",
+              fillColor: "#198754",
+              fillOpacity: 0.15,
+              radius: 200,
+              weight: 2,
+            }).addTo(map);
 
-          // Validate starting location coordinates before creating waypoint
-          if (
-            startLocation &&
-            startLocation.length === 2 &&
-            !isNaN(startLocation[0]) &&
-            !isNaN(startLocation[1]) &&
-            Math.abs(startLocation[0]) <= 90 &&
-            Math.abs(startLocation[1]) <= 180
-          ) {
-            waypoints.push(L.latLng(startLocation[0], startLocation[1]));
-          } else {
-            console.error(
-              `Invalid starting location coordinates: [${startLocation}], using fallback`
-            );
-            // Use Ahmedabad center as fallback
-            waypoints.push(L.latLng(23.0225, 72.5714));
+            // Add start location to waypoints (with validation)
+            waypoints.push(startLocation);
+          } catch (error) {
+            console.error("Error creating start marker:", error);
+            // Create fallback marker at Ahmedabad center
+            const fallbackLocation = L.latLng(23.0225, 72.5714);
+            startMarker = L.marker(fallbackLocation, { icon: startIcon })
+              .addTo(map)
+              .bindPopup(
+                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Ahmedabad Center</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">Fallback location</div>'
+              );
+
+            // Add fallback circle
+            L.circle(fallbackLocation, {
+              color: "#198754",
+              fillColor: "#198754",
+              fillOpacity: 0.15,
+              radius: 200,
+              weight: 2,
+            }).addTo(map);
+
+            // Add fallback location to waypoints
+            waypoints.push(fallbackLocation);
           }
 
           // Process route data
@@ -1234,14 +1276,44 @@
                     document.getElementById("back-to-start-btn");
                   if (backToStartBtn) {
                     backToStartBtn.addEventListener("click", function () {
-                      // Center map on postman location with animation
-                      map.flyTo(postmanLocation, 15, {
-                        animate: true,
-                        duration: 1.5,
-                      });
+                      // Ensure postmanLocation is valid before using flyTo
+                      if (
+                        !postmanLocation ||
+                        !Array.isArray(postmanLocation) ||
+                        postmanLocation.length !== 2 ||
+                        isNaN(postmanLocation[0]) ||
+                        isNaN(postmanLocation[1])
+                      ) {
+                        console.error(
+                          "Invalid postman location:",
+                          postmanLocation
+                        );
+                        // Use a fallback location for Ahmedabad center
+                        map.flyTo([23.0225, 72.5714], 15, {
+                          animate: true,
+                          duration: 1.5,
+                        });
+                      } else {
+                        // Create a valid LatLng object and use it
+                        const validLatLng = L.latLng(
+                          parseFloat(postmanLocation[0]),
+                          parseFloat(postmanLocation[1])
+                        );
 
-                      // Open the postman popup
-                      startMarker.openPopup();
+                        // Use flyTo with the validated LatLng
+                        map.flyTo(validLatLng, 15, {
+                          animate: true,
+                          duration: 1.5,
+                        });
+                      }
+
+                      // Open the postman popup if it exists
+                      if (
+                        startMarker &&
+                        typeof startMarker.openPopup === "function"
+                      ) {
+                        startMarker.openPopup();
+                      }
                     });
                   }
                 }, 100);
@@ -1389,14 +1461,44 @@
                   document.getElementById("back-to-start-btn");
                 if (backToStartBtn) {
                   backToStartBtn.addEventListener("click", function () {
-                    // Center map on postman location with animation
-                    map.flyTo(postmanLocation, 15, {
-                      animate: true,
-                      duration: 1.5,
-                    });
+                    // Ensure postmanLocation is valid before using flyTo
+                    if (
+                      !postmanLocation ||
+                      !Array.isArray(postmanLocation) ||
+                      postmanLocation.length !== 2 ||
+                      isNaN(postmanLocation[0]) ||
+                      isNaN(postmanLocation[1])
+                    ) {
+                      console.error(
+                        "Invalid postman location:",
+                        postmanLocation
+                      );
+                      // Use a fallback location for Ahmedabad center
+                      map.flyTo([23.0225, 72.5714], 15, {
+                        animate: true,
+                        duration: 1.5,
+                      });
+                    } else {
+                      // Create a valid LatLng object and use it
+                      const validLatLng = L.latLng(
+                        parseFloat(postmanLocation[0]),
+                        parseFloat(postmanLocation[1])
+                      );
 
-                    // Open the postman popup
-                    startMarker.openPopup();
+                      // Use flyTo with the validated LatLng
+                      map.flyTo(validLatLng, 15, {
+                        animate: true,
+                        duration: 1.5,
+                      });
+                    }
+
+                    // Open the postman popup if it exists
+                    if (
+                      startMarker &&
+                      typeof startMarker.openPopup === "function"
+                    ) {
+                      startMarker.openPopup();
+                    }
                   });
                 }
               }, 100);
@@ -1567,6 +1669,27 @@
                 }
               }, 100);
             }
+          }
+        }
+
+        // Function to return to starting point
+        function returnToStart() {
+          try {
+            if (startMarker && startMarker._latlng) {
+              map.flyTo(startMarker._latlng, 15);
+              if (startMarker.openPopup) {
+                startMarker.openPopup();
+              }
+            } else {
+              console.warn(
+                "Start marker not properly initialized, flying to default center"
+              );
+              map.flyTo([23.0225, 72.5714], 15);
+            }
+          } catch (error) {
+            console.error("Error in returnToStart function:", error);
+            // Fallback to Ahmedabad center
+            map.flyTo([23.0225, 72.5714], 15);
           }
         }
       });
