@@ -2,9 +2,17 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 import pandas as pd
 from delivery_predictor import DeliveryPredictor
 from datetime import datetime
+import argparse
 
 app = Flask(__name__)
 predictor = DeliveryPredictor()
+
+# Add a custom Jinja2 filter for dictionary update
+@app.template_filter('dict_concat')
+def dict_concat(d1, d2):
+    d = d1.copy()
+    d.update(d2)
+    return d
 
 @app.route('/')
 def index():
@@ -37,12 +45,32 @@ def index():
     # Convert grouped orders dict to list
     grouped_todays_orders = list(grouped_orders.values())
     
+    # Group pending orders by customer name and delivery day
+    grouped_pending_orders = {}
+    
+    for order in pending_orders:
+        key = f"{order['name']}_{order['delivery_day']}"
+        if key in grouped_pending_orders:
+            grouped_pending_orders[key]['orders'].append(order)
+        else:
+            grouped_pending_orders[key] = {
+                'name': order['name'],
+                'delivery_day': order['delivery_day'],
+                'area': order['area'],
+                'address': order['address'],
+                'orders': [order]
+            }
+    
+    # Convert to list for the template
+    grouped_pending_list = list(grouped_pending_orders.values())
+    
     return render_template('index.html', 
                           pending_orders=pending_orders,
                           current_day=current_day,
                           names=names,
                           todays_orders=todays_orders,
-                          grouped_todays_orders=grouped_todays_orders)
+                          grouped_todays_orders=grouped_todays_orders,
+                          grouped_pending_orders=grouped_pending_list)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -108,4 +136,9 @@ def optimize_route():
     return jsonify(optimal_route)
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Delivery Prediction System')
+    parser.add_argument('--port', type=int, default=5000, help='Port to run the server on')
+    args = parser.parse_args()
+    
+    app.run(debug=True, port=args.port) 

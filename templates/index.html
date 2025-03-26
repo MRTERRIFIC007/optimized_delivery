@@ -8,6 +8,12 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
     <style>
       body {
         padding-top: 20px;
@@ -298,18 +304,7 @@
             </div>
             <div class="card-body">
               <div class="list-group" id="ordersContainer">
-                {% set grouped_pending = {} %} {% for order in pending_orders %}
-                {% if order.name in grouped_pending %} {% if
-                grouped_pending[order.name].delivery_day == order.delivery_day
-                %} {% set _ = grouped_pending[order.name].orders.append(order)
-                %} {% else %} {% set _ = grouped_pending[order.name + '_' +
-                order.delivery_day] = {'name': order.name, 'delivery_day':
-                order.delivery_day, 'area': order.area, 'address':
-                order.address, 'orders': [order]} %} {% endif %} {% else %} {%
-                set _ = grouped_pending[order.name] = {'name': order.name,
-                'delivery_day': order.delivery_day, 'area': order.area,
-                'address': order.address, 'orders': [order]} %} {% endif %} {%
-                endfor %} {% for group_key, group in grouped_pending.items() %}
+                {% for group in grouped_pending_orders %}
                 <div class="card order-card">
                   <div class="card-body">
                     <h5 class="card-title">
@@ -366,6 +361,11 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
     <script>
       // Customer area mapping
       const customerAreas = {
@@ -515,7 +515,7 @@
 
               $("#routeDetails").html(routeDetailsHtml);
 
-              // Initialize Google Maps with the route (simplified version)
+              // Initialize route map using Leaflet
               initRouteMap(response);
 
               // Show the result
@@ -524,20 +524,99 @@
           });
         });
 
-        // Function to initialize the route map (simplified version without actual Google Maps API calls)
+        // Function to initialize the route map using Leaflet
         function initRouteMap(routeData) {
-          // In a real implementation, this would initialize a Google Map and draw the route
-          // For this demo, we'll just show a placeholder
-          $("#routeMap").html(`
-            <div class="alert alert-secondary text-center">
-              <p><i class="bi bi-map"></i> Interactive map would be displayed here showing the optimized route:</p>
-              <p class="fw-bold">${routeData.route.join(" → ")}</p>
-              <p class="text-muted">Total distance: ${
-                routeData.total_distance
-              }</p>
-              <p class="small text-muted">A real implementation would use the Google Maps JavaScript API to render an interactive map with the route.</p>
-            </div>
-          `);
+          // Clear any existing map
+          $("#routeMap").empty();
+          $("#routeMap").html('<div id="map" style="height: 400px;"></div>');
+
+          // Define coordinates for Ahmedabad areas (approximate)
+          const areaCoordinates = {
+            Satellite: [23.0277, 72.5054],
+            Bopal: [23.0361, 72.4619],
+            Vastrapur: [23.0459, 72.531],
+            Paldi: [23.0157, 72.5527],
+            Thaltej: [23.0457, 72.5005],
+            Navrangpura: [23.0407, 72.5611],
+            Bodakdev: [23.0506, 72.5079],
+            Gota: [23.0997, 72.5279],
+            Maninagar: [22.9999, 72.6041],
+            Chandkheda: [23.1158, 72.5798],
+            "Start Location (Postman)": [23.0277, 72.5054], // Same as Satellite (Iscon)
+          };
+
+          // Initialize map centered on Ahmedabad
+          const map = L.map("map").setView([23.0407, 72.5611], 12);
+
+          // Add OpenStreetMap tile layer
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          }).addTo(map);
+
+          // Markers and route
+          if (routeData && routeData.details && routeData.details.length > 0) {
+            const points = [];
+            const markers = [];
+
+            // Add markers for each stop
+            routeData.details.forEach((leg, index) => {
+              // Add "from" marker for the first leg
+              if (index === 0) {
+                const fromName = leg.from;
+                const coords = areaCoordinates[fromName.split(" (")[0]] || [
+                  0, 0,
+                ];
+
+                const marker = L.marker(coords)
+                  .addTo(map)
+                  .bindPopup(
+                    `<b>Start:</b> ${fromName}<br>${leg.from_address}`
+                  );
+
+                markers.push(marker);
+                points.push(coords);
+              }
+
+              // Add "to" marker for all legs
+              const toName = leg.to;
+              const customerName = toName.split(" (")[0];
+              const coords = areaCoordinates[customerName] || [0, 0];
+
+              // Create a custom icon for delivery stops
+              const deliveryIcon = L.divIcon({
+                className: "custom-div-icon",
+                html: `<div style="background-color: #fd7e14; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">${
+                  index + 1
+                }</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+              });
+
+              const marker = L.marker(coords, { icon: deliveryIcon })
+                .addTo(map)
+                .bindPopup(
+                  `<b>Stop ${index + 1}:</b> ${toName}<br>${
+                    leg.to_address
+                  }<br><b>Distance:</b> ${leg.distance}<br><b>Duration:</b> ${
+                    leg.duration
+                  }`
+                );
+
+              markers.push(marker);
+              points.push(coords);
+            });
+
+            // Create a polyline to show the route
+            const polyline = L.polyline(points, {
+              color: "blue",
+              weight: 3,
+            }).addTo(map);
+
+            // Fit the map to show all markers
+            const bounds = L.latLngBounds(points);
+            map.fitBounds(bounds.pad(0.1));
+          }
         }
       });
     </script>
