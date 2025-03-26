@@ -13,7 +13,7 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key')  # Require
 predictor = DeliveryPredictor()
 
 # Initialize chatbot with Perplexity API key
-perplexity_api_key = os.environ.get("PERPLEXITY_API_KEY", None)
+perplexity_api_key = "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"  # Corrected format
 chatbot = DeliveryChatbot(predictor, perplexity_api_key)
 
 # Add a custom Jinja2 filter for dictionary update
