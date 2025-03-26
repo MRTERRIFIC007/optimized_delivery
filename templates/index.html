@@ -14,6 +14,10 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
     <style>
       body {
         padding-top: 20px;
@@ -682,7 +686,7 @@
 
           // Initialize map centered on postman's location (Satellite)
           const postmanLocation = areaCoordinates["Start Location (Postman)"];
-          const map = L.map("map").setView(postmanLocation, 14);
+          const map = L.map("map").setView(postmanLocation, 15);
 
           // Set max bounds to Ahmedabad region to prevent excessive panning
           const southWest = L.latLng(22.9, 72.4);
@@ -986,6 +990,38 @@
                   return div;
                 };
                 summaryControl.addTo(map);
+
+                // Add a control button to go back to start location
+                const backToStartControl = L.control({ position: "topleft" });
+                backToStartControl.onAdd = function () {
+                  const div = L.DomUtil.create("div", "back-to-start-control");
+                  div.innerHTML = `
+                    <button id="back-to-start-btn" class="btn btn-success" 
+                      style="padding: 6px 12px; font-size: 14px; margin: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                      <i class="bi bi-geo-alt-fill"></i> Go to Starting Point
+                    </button>
+                  `;
+                  return div;
+                };
+                backToStartControl.addTo(map);
+
+                // Add event listener for the back to start button
+                setTimeout(() => {
+                  const backToStartBtn =
+                    document.getElementById("back-to-start-btn");
+                  if (backToStartBtn) {
+                    backToStartBtn.addEventListener("click", function () {
+                      // Center map on postman location with animation
+                      map.flyTo(postmanLocation, 15, {
+                        animate: true,
+                        duration: 1.5,
+                      });
+
+                      // Open the postman popup
+                      startMarker.openPopup();
+                    });
+                  }
+                }, 100);
               } catch (error) {
                 console.error("Error creating route:", error);
 
@@ -1095,6 +1131,38 @@
                 return div;
               };
               optimizeControl.addTo(map);
+
+              // Add a control button to go back to start location
+              const backToStartControl = L.control({ position: "topleft" });
+              backToStartControl.onAdd = function () {
+                const div = L.DomUtil.create("div", "back-to-start-control");
+                div.innerHTML = `
+                  <button id="back-to-start-btn" class="btn btn-success" 
+                    style="padding: 6px 12px; font-size: 14px; margin: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                    <i class="bi bi-geo-alt-fill"></i> Go to Starting Point
+                  </button>
+                `;
+                return div;
+              };
+              backToStartControl.addTo(map);
+
+              // Add event listener for the back to start button
+              setTimeout(() => {
+                const backToStartBtn =
+                  document.getElementById("back-to-start-btn");
+                if (backToStartBtn) {
+                  backToStartBtn.addEventListener("click", function () {
+                    // Center map on postman location with animation
+                    map.flyTo(postmanLocation, 15, {
+                      animate: true,
+                      duration: 1.5,
+                    });
+
+                    // Open the postman popup
+                    startMarker.openPopup();
+                  });
+                }
+              }, 100);
 
               // Define global function to toggle location selection
               window.toggleLocation = function (areaName) {
