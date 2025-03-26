@@ -3,6 +3,8 @@ import pandas as pd
 from delivery_predictor import DeliveryPredictor
 from datetime import datetime
 import argparse
+import requests
+import json
 
 app = Flask(__name__)
 predictor = DeliveryPredictor()
@@ -134,6 +136,37 @@ def optimize_route():
     optimal_route = predictor.optimize_delivery_route(selected_customers)
     
     return jsonify(optimal_route)
+
+@app.route('/geocode', methods=['POST'])
+def geocode():
+    """Geocode an address to get coordinates"""
+    address = request.form.get('address')
+    
+    if not address:
+        return jsonify({'error': 'No address provided'}), 400
+    
+    try:
+        # Use Nominatim for geocoding
+        url = f"https://nominatim.openstreetmap.org/search?format=json&q={address}&limit=1"
+        headers = {
+            'User-Agent': 'DeliveryPredictionSystem/1.0'
+        }
+        
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        
+        if data and len(data) > 0:
+            result = data[0]
+            return jsonify({
+                'lat': float(result['lat']),
+                'lon': float(result['lon']),
+                'display_name': result['display_name']
+            })
+        else:
+            return jsonify({'error': 'Address not found'}), 404
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Parse command line arguments

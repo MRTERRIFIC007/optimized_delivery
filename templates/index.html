@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Delivery Prediction System</title>
     <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>"
+    />
+    <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
@@ -415,6 +419,34 @@
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
     <script>
+      // Function to geocode address using Nominatim
+      function geocodeAddress(address) {
+        return new Promise((resolve, reject) => {
+          const encodedAddress = encodeURIComponent(address);
+          const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
+
+          fetch(url, {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "DeliveryPredictionSystem/1.0",
+            },
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data && data.length > 0) {
+                const result = data[0];
+                resolve([parseFloat(result.lat), parseFloat(result.lon)]);
+              } else {
+                reject(new Error("Address not found"));
+              }
+            })
+            .catch((error) => {
+              console.error("Geocoding error:", error);
+              reject(error);
+            });
+        });
+      }
+
       // Customer area mapping
       const customerAreas = {
         Aditya: "Satellite",
@@ -629,58 +661,69 @@
           // Define customer address coordinates for Leaflet geocoding
           const customerAddresses = {
             Aditya: {
-              address: "Near Jodhpur Cross Road, Satellite, Ahmedabad - 380015",
+              address:
+                "Near Jodhpur Cross Road, Satellite, Ahmedabad, Gujarat, India",
               area: "Satellite",
               coords: [23.030357, 72.517845],
+              geocodeAddress: "Satellite, Ahmedabad, Gujarat, India",
             },
             Vivaan: {
               address: "Near Bopal Cross Road, Bopal, Ahmedabad - 380058",
               area: "Bopal",
               coords: [23.032011, 72.467816],
+              geocodeAddress: "Bopal, Ahmedabad, Gujarat, India",
             },
             Aarav: {
               address: "Near Vastrapur Lake, Vastrapur, Ahmedabad - 380015",
               area: "Vastrapur",
               coords: [23.0362554310379, 72.5305526298169],
+              geocodeAddress: "Vastrapur, Ahmedabad, Gujarat, India",
             },
             Meera: {
               address: "Opposite Dharnidhar Derasar, Paldi, Ahmedabad - 380007",
               area: "Paldi",
               coords: [23.013054, 72.562515],
+              geocodeAddress: "Paldi, Ahmedabad, Gujarat, India",
             },
             Diya: {
               address:
                 "Near Thaltej Cross Road, S.G. Highway, Ahmedabad - 380054",
               area: "Thaltej",
               coords: [23.049736, 72.511726],
+              geocodeAddress: "Thaltej, Ahmedabad, Gujarat, India",
             },
             Riya: {
               address:
                 "Near Navrangpura AMTS Bus Stop, Navrangpura, Ahmedabad - 380009",
               area: "Navrangpura",
               coords: [23.036406, 72.561066],
+              geocodeAddress: "Navrangpura, Ahmedabad, Gujarat, India",
             },
             Ananya: {
               address: "Opposite Rajpath Club, Bodakdev, Ahmedabad - 380054",
               area: "Bodakdev",
               coords: [23.0394524, 72.512492],
+              geocodeAddress: "Bodakdev, Ahmedabad, Gujarat, India",
             },
             Aryan: {
               address: "Near Oganaj Gam, Gota, Ahmedabad - 382481",
               area: "Gota",
               coords: [23.104, 72.5399],
+              geocodeAddress: "Gota, Ahmedabad, Gujarat, India",
             },
             Ishaan: {
               address:
                 "Opposite Rambaug Police Station, Maninagar, Ahmedabad - 380008",
               area: "Maninagar",
               coords: [22.99617, 72.599586],
+              geocodeAddress: "Maninagar, Ahmedabad, Gujarat, India",
             },
             Kabir: {
               address:
                 "Near Chandkheda Gam Bus Stop, Chandkheda, Ahmedabad - 382424",
               area: "Chandkheda",
               coords: [23.11842, 72.586777],
+              geocodeAddress: "Chandkheda, Ahmedabad, Gujarat, India",
             },
           };
 
@@ -760,121 +803,219 @@
 
               // Find the coordinates from customerAddresses if available
               let coords = null;
-              if (customerName in customerAddresses) {
-                coords = customerAddresses[customerName].coords;
-              } else {
-                // Find the exact case for the customer name in the coordinates object
-                const exactCustomerName =
-                  Object.keys(areaCoordinates).find(
-                    (key) => key.toLowerCase() === customerName.toLowerCase()
-                  ) || customerName;
+              let geocodingAttempted = false;
 
-                // Get coordinates for this customer
-                coords = areaCoordinates[exactCustomerName];
+              try {
+                if (customerName in customerAddresses) {
+                  coords = customerAddresses[customerName].coords;
 
-                // If still no coordinates found, use geocoding based on address
-                if (!coords && leg.to_address) {
-                  console.log(
-                    `No coordinates found for ${customerName}, attempting to use address: ${leg.to_address}`
-                  );
+                  // Check if coordinates are valid
+                  const validCoords =
+                    coords &&
+                    coords.length === 2 &&
+                    !isNaN(coords[0]) &&
+                    !isNaN(coords[1]) &&
+                    Math.abs(coords[0]) <= 90 &&
+                    Math.abs(coords[1]) <= 180;
 
-                  // Extract area name from address if possible
-                  const addressAreaMatch = leg.to_address.match(
-                    /\b(Satellite|Bopal|Vastrapur|Paldi|Thaltej|Navrangpura|Bodakdev|Gota|Maninagar|Chandkheda)\b/i
-                  );
-
-                  if (addressAreaMatch) {
-                    const extractedArea = addressAreaMatch[1];
-                    console.log(`Found area name in address: ${extractedArea}`);
-
-                    // Find the exact area name with proper case
-                    const exactAreaName = Object.keys(areaCoordinates).find(
-                      (key) => key.toLowerCase() === extractedArea.toLowerCase()
+                  if (!validCoords) {
+                    console.warn(
+                      `Invalid coordinates for ${customerName}: [${coords}], trying geocoding`
                     );
 
-                    if (exactAreaName) {
-                      coords = areaCoordinates[exactAreaName];
+                    // Try geocoding with the generalized address
+                    const geocodeAddr =
+                      customerAddresses[customerName].geocodeAddress ||
+                      `${customerAddresses[customerName].area}, Ahmedabad, Gujarat, India`;
+
+                    // Use promise to attempt geocoding
+                    geocodingAttempted = true;
+                    geocodeAddress(geocodeAddr)
+                      .then((geocodedCoords) => {
+                        console.log(
+                          `Successfully geocoded ${customerName} to [${geocodedCoords}]`
+                        );
+                        coords = geocodedCoords;
+
+                        // Create marker and add to map with the geocoded coordinates
+                        addDeliveryMarker(customerName, leg, coords, index);
+                      })
+                      .catch((error) => {
+                        console.error(
+                          `Geocoding failed for ${customerName}: ${error.message}`
+                        );
+                        // Use Ahmedabad center as fallback
+                        coords = [23.0225, 72.5714];
+
+                        // Create marker with fallback coordinates
+                        addDeliveryMarker(customerName, leg, coords, index);
+                      });
+                  }
+                } else {
+                  // Find the exact case for the customer name in the coordinates object
+                  const exactCustomerName =
+                    Object.keys(areaCoordinates).find(
+                      (key) => key.toLowerCase() === customerName.toLowerCase()
+                    ) || customerName;
+
+                  // Get coordinates for this customer
+                  coords = areaCoordinates[exactCustomerName];
+
+                  // If still no coordinates found, use geocoding based on address
+                  if (!coords && leg.to_address) {
+                    console.log(
+                      `No coordinates found for ${customerName}, attempting to use address: ${leg.to_address}`
+                    );
+
+                    // Extract area name from address if possible
+                    const addressAreaMatch = leg.to_address.match(
+                      /\b(Satellite|Bopal|Vastrapur|Paldi|Thaltej|Navrangpura|Bodakdev|Gota|Maninagar|Chandkheda)\b/i
+                    );
+
+                    if (addressAreaMatch) {
+                      const extractedArea = addressAreaMatch[1];
                       console.log(
-                        `Using coordinates for area ${exactAreaName}: [${coords}]`
+                        `Found area name in address: ${extractedArea}`
                       );
+
+                      // Find the exact area name with proper case
+                      const exactAreaName = Object.keys(areaCoordinates).find(
+                        (key) =>
+                          key.toLowerCase() === extractedArea.toLowerCase()
+                      );
+
+                      if (exactAreaName) {
+                        coords = areaCoordinates[exactAreaName];
+                        console.log(
+                          `Using coordinates for area ${exactAreaName}: [${coords}]`
+                        );
+                      }
+                    }
+
+                    // If still no coordinates, try geocoding the address directly
+                    if (!coords) {
+                      // Simplify address for geocoding
+                      let geocodingAddress = leg.to_address;
+                      const areaMatch = leg.to_address.match(
+                        /\b([A-Za-z]+),\s*Ahmedabad/i
+                      );
+                      if (areaMatch) {
+                        geocodingAddress = `${areaMatch[1]}, Ahmedabad, Gujarat, India`;
+                      } else {
+                        geocodingAddress = "Ahmedabad, Gujarat, India";
+                      }
+
+                      // Use promise to attempt geocoding
+                      geocodingAttempted = true;
+                      geocodeAddress(geocodingAddress)
+                        .then((geocodedCoords) => {
+                          console.log(
+                            `Successfully geocoded address to [${geocodedCoords}]`
+                          );
+                          coords = geocodedCoords;
+
+                          // Create marker and add to map with the geocoded coordinates
+                          addDeliveryMarker(customerName, leg, coords, index);
+                        })
+                        .catch((error) => {
+                          console.error(`Geocoding failed: ${error.message}`);
+                          // Use Ahmedabad center as fallback
+                          coords = [23.0225, 72.5714];
+
+                          // Create marker with fallback coordinates
+                          addDeliveryMarker(customerName, leg, coords, index);
+                        });
                     }
                   }
+                }
 
-                  // If still no coordinates, use Ahmedabad center as fallback
-                  if (!coords) {
-                    coords = [23.0225, 72.5714]; // Ahmedabad center
-                    console.log(
-                      `Using fallback coordinates: [23.0225, 72.5714]`
-                    );
+                // Helper function to add a delivery marker to the map
+                function addDeliveryMarker(customerName, leg, coords, index) {
+                  if (
+                    coords &&
+                    coords.length === 2 &&
+                    !isNaN(coords[0]) &&
+                    !isNaN(coords[1]) &&
+                    Math.abs(coords[0]) <= 90 &&
+                    Math.abs(coords[1]) <= 180
+                  ) {
+                    // Check if name contains parcel count information
+                    const toName = leg.to;
+                    const hasMultipleParcels = toName.includes("parcels");
+                    const parcelCount = hasMultipleParcels
+                      ? parseInt(toName.match(/\((\d+) parcels\)/)[1])
+                      : 1;
+
+                    // Create numbered icon
+                    const deliveryIcon = L.divIcon({
+                      className: "custom-div-icon",
+                      html: `<div style="background-color: #0d6efd; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">${
+                        index + 1
+                      }</div>`,
+                      iconSize: [28, 28],
+                      iconAnchor: [14, 14],
+                      popupAnchor: [0, -10],
+                    });
+
+                    // Add popup content
+                    let popupContent = `<div style="text-align: center;"><b>${toName}</b></div>`;
+                    popupContent += `<hr style="margin: 5px 0;">`;
+                    popupContent += `<b>Address:</b> ${leg.to_address}<br>`;
+                    popupContent += `<b>Distance:</b> ${leg.distance}<br>`;
+                    popupContent += `<b>Duration:</b> ${leg.duration}`;
+
+                    // Create marker and add to map
+                    const marker = L.marker(coords, { icon: deliveryIcon })
+                      .addTo(map)
+                      .bindPopup(popupContent, { maxWidth: 300 });
+
+                    // Mark this location as selected and add to waypoints
+                    const areaName =
+                      customerName in customerAddresses
+                        ? customerAddresses[customerName].area
+                        : Object.keys(areaCoordinates).find(
+                            (key) =>
+                              key.toLowerCase() === customerName.toLowerCase()
+                          );
+
+                    if (areaName) selectedLocations[areaName] = true;
+
+                    // Validate coordinates before creating the waypoint
+                    if (
+                      coords &&
+                      coords.length === 2 &&
+                      !isNaN(coords[0]) &&
+                      !isNaN(coords[1]) &&
+                      Math.abs(coords[0]) <= 90 &&
+                      Math.abs(coords[1]) <= 180
+                    ) {
+                      waypoints.push(L.latLng(coords[0], coords[1]));
+                    } else {
+                      console.error(
+                        `Invalid coordinates for ${customerName}: [${coords}], skipping waypoint`
+                      );
+                    }
+
+                    // Store marker reference
+                    markers[areaName] = {
+                      marker: marker,
+                      coords: coords,
+                      name: toName,
+                      address: leg.to_address,
+                      index: index + 1,
+                    };
                   }
                 }
+              } catch (error) {
+                console.error(
+                  `Error processing location for ${customerName}:`,
+                  error
+                );
               }
 
-              if (coords && coords.length === 2) {
-                // Check if name contains parcel count information
-                const hasMultipleParcels = toName.includes("parcels");
-                const parcelCount = hasMultipleParcels
-                  ? parseInt(toName.match(/\((\d+) parcels\)/)[1])
-                  : 1;
-
-                // Create numbered icon
-                const deliveryIcon = L.divIcon({
-                  className: "custom-div-icon",
-                  html: `<div style="background-color: #0d6efd; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">${
-                    index + 1
-                  }</div>`,
-                  iconSize: [28, 28],
-                  iconAnchor: [14, 14],
-                  popupAnchor: [0, -10],
-                });
-
-                // Add popup content
-                let popupContent = `<div style="text-align: center;"><b>${toName}</b></div>`;
-                popupContent += `<hr style="margin: 5px 0;">`;
-                popupContent += `<b>Address:</b> ${leg.to_address}<br>`;
-                popupContent += `<b>Distance:</b> ${leg.distance}<br>`;
-                popupContent += `<b>Duration:</b> ${leg.duration}`;
-
-                // Create marker and add to map
-                const marker = L.marker(coords, { icon: deliveryIcon })
-                  .addTo(map)
-                  .bindPopup(popupContent, { maxWidth: 300 });
-
-                // Mark this location as selected and add to waypoints
-                const areaName =
-                  customerName in customerAddresses
-                    ? customerAddresses[customerName].area
-                    : Object.keys(areaCoordinates).find(
-                        (key) =>
-                          key.toLowerCase() === customerName.toLowerCase()
-                      );
-
-                if (areaName) selectedLocations[areaName] = true;
-
-                // Validate coordinates before creating the waypoint
-                if (
-                  coords &&
-                  coords.length === 2 &&
-                  !isNaN(coords[0]) &&
-                  !isNaN(coords[1]) &&
-                  Math.abs(coords[0]) <= 90 &&
-                  Math.abs(coords[1]) <= 180
-                ) {
-                  waypoints.push(L.latLng(coords[0], coords[1]));
-                } else {
-                  console.error(
-                    `Invalid coordinates for ${customerName}: [${coords}], skipping waypoint`
-                  );
-                }
-
-                // Store marker reference
-                markers[areaName] = {
-                  marker: marker,
-                  coords: coords,
-                  name: toName,
-                  address: leg.to_address,
-                  index: index + 1,
-                };
+              // If not using geocoding (which is async), add the marker directly
+              if (!geocodingAttempted && coords) {
+                addDeliveryMarker(customerName, leg, coords, index);
               }
             });
 
