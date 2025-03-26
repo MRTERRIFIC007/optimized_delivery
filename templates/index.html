@@ -680,8 +680,9 @@
             },
           };
 
-          // Initialize map centered on Ahmedabad
-          const map = L.map("map").setView([23.036406, 72.561066], 12);
+          // Initialize map centered on postman's location (Satellite)
+          const postmanLocation = areaCoordinates["Start Location (Postman)"];
+          const map = L.map("map").setView(postmanLocation, 13);
 
           // Add OpenStreetMap tile layer
           L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -692,9 +693,9 @@
           // Create start icon for postman location
           const startIcon = L.divIcon({
             className: "custom-div-icon",
-            html: `<div style="background-color: #198754; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">S</div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
+            html: `<div style="background-color: #198754; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 3px solid white; font-size: 16px;">S</div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
           });
 
           // Store markers and selected locations
@@ -707,8 +708,20 @@
           const startMarker = L.marker(startLocation, { icon: startIcon })
             .addTo(map)
             .bindPopup(
-              "<b>Start Location (Postman)</b><br>Iscon Center, Satellite"
+              '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Satellite</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">All routes start here</div>'
             );
+
+          // Open postman popup by default
+          startMarker.openPopup();
+
+          // Add a circle around the starting location
+          L.circle(startLocation, {
+            color: "#198754",
+            fillColor: "#198754",
+            fillOpacity: 0.1,
+            radius: 300,
+            weight: 2,
+          }).addTo(map);
 
           waypoints.push(L.latLng(startLocation[0], startLocation[1]));
 
