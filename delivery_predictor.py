@@ -138,6 +138,9 @@ class DeliveryPredictor:
                 "failure_rate": round(adjusted_failure_rate, 1)
             })
         
+        # Sort the result by failure rate (lowest to highest)
+        result.sort(key=lambda x: x["failure_rate"])
+        
         return result
     
     def get_driving_distance(self, origin, destination):
