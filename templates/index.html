@@ -682,7 +682,12 @@
 
           // Initialize map centered on postman's location (Satellite)
           const postmanLocation = areaCoordinates["Start Location (Postman)"];
-          const map = L.map("map").setView(postmanLocation, 13);
+          const map = L.map("map").setView(postmanLocation, 14);
+
+          // Set max bounds to Ahmedabad region to prevent excessive panning
+          const southWest = L.latLng(22.9, 72.4);
+          const northEast = L.latLng(23.2, 72.7);
+          map.setMaxBounds(L.latLngBounds(southWest, northEast));
 
           // Add OpenStreetMap tile layer
           L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -718,8 +723,8 @@
           L.circle(startLocation, {
             color: "#198754",
             fillColor: "#198754",
-            fillOpacity: 0.1,
-            radius: 300,
+            fillOpacity: 0.15,
+            radius: 200,
             weight: 2,
           }).addTo(map);
 
@@ -925,9 +930,9 @@
                   }
                 }
 
-                // Fit map to show all delivery points
+                // Fit map to show all delivery points with smaller padding
                 const bounds = L.latLngBounds(waypoints);
-                map.fitBounds(bounds.pad(0.2));
+                map.fitBounds(bounds.pad(0.1));
 
                 // Add directional arrows to the route using Polyline Decorator
                 if (typeof L.polylineDecorator !== "undefined") {
@@ -1018,9 +1023,9 @@
                   }
                 }
 
-                // Fit map to show all delivery points
+                // Fit map to show all delivery points with smaller padding
                 const bounds = L.latLngBounds(waypoints);
-                map.fitBounds(bounds.pad(0.2));
+                map.fitBounds(bounds.pad(0.1));
               }
             } else {
               // If no route data provided, show interactive map with selectable locations
