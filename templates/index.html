@@ -732,7 +732,23 @@
             weight: 2,
           }).addTo(map);
 
-          waypoints.push(L.latLng(startLocation[0], startLocation[1]));
+          // Validate starting location coordinates before creating waypoint
+          if (
+            startLocation &&
+            startLocation.length === 2 &&
+            !isNaN(startLocation[0]) &&
+            !isNaN(startLocation[1]) &&
+            Math.abs(startLocation[0]) <= 90 &&
+            Math.abs(startLocation[1]) <= 180
+          ) {
+            waypoints.push(L.latLng(startLocation[0], startLocation[1]));
+          } else {
+            console.error(
+              `Invalid starting location coordinates: [${startLocation}], using fallback`
+            );
+            // Use Ahmedabad center as fallback
+            waypoints.push(L.latLng(23.0225, 72.5714));
+          }
 
           // Process route data
           if (routeData && routeData.details && routeData.details.length > 0) {
@@ -755,6 +771,43 @@
 
                 // Get coordinates for this customer
                 coords = areaCoordinates[exactCustomerName];
+
+                // If still no coordinates found, use geocoding based on address
+                if (!coords && leg.to_address) {
+                  console.log(
+                    `No coordinates found for ${customerName}, attempting to use address: ${leg.to_address}`
+                  );
+
+                  // Extract area name from address if possible
+                  const addressAreaMatch = leg.to_address.match(
+                    /\b(Satellite|Bopal|Vastrapur|Paldi|Thaltej|Navrangpura|Bodakdev|Gota|Maninagar|Chandkheda)\b/i
+                  );
+
+                  if (addressAreaMatch) {
+                    const extractedArea = addressAreaMatch[1];
+                    console.log(`Found area name in address: ${extractedArea}`);
+
+                    // Find the exact area name with proper case
+                    const exactAreaName = Object.keys(areaCoordinates).find(
+                      (key) => key.toLowerCase() === extractedArea.toLowerCase()
+                    );
+
+                    if (exactAreaName) {
+                      coords = areaCoordinates[exactAreaName];
+                      console.log(
+                        `Using coordinates for area ${exactAreaName}: [${coords}]`
+                      );
+                    }
+                  }
+
+                  // If still no coordinates, use Ahmedabad center as fallback
+                  if (!coords) {
+                    coords = [23.0225, 72.5714]; // Ahmedabad center
+                    console.log(
+                      `Using fallback coordinates: [23.0225, 72.5714]`
+                    );
+                  }
+                }
               }
 
               if (coords && coords.length === 2) {
@@ -797,7 +850,22 @@
                       );
 
                 if (areaName) selectedLocations[areaName] = true;
-                waypoints.push(L.latLng(coords[0], coords[1]));
+
+                // Validate coordinates before creating the waypoint
+                if (
+                  coords &&
+                  coords.length === 2 &&
+                  !isNaN(coords[0]) &&
+                  !isNaN(coords[1]) &&
+                  Math.abs(coords[0]) <= 90 &&
+                  Math.abs(coords[1]) <= 180
+                ) {
+                  waypoints.push(L.latLng(coords[0], coords[1]));
+                } else {
+                  console.error(
+                    `Invalid coordinates for ${customerName}: [${coords}], skipping waypoint`
+                  );
+                }
 
                 // Store marker reference
                 markers[areaName] = {
@@ -935,8 +1003,22 @@
                 }
 
                 // Fit map to show all delivery points with smaller padding
-                const bounds = L.latLngBounds(waypoints);
-                map.fitBounds(bounds.pad(0.1));
+                try {
+                  if (waypoints.length >= 2) {
+                    const bounds = L.latLngBounds(waypoints);
+                    map.fitBounds(bounds.pad(0.1));
+                  } else if (waypoints.length === 1) {
+                    // If there's only one waypoint, center on it
+                    map.setView(waypoints[0], 15);
+                  } else {
+                    // If no valid waypoints, center on Ahmedabad
+                    map.setView([23.0225, 72.5714], 12);
+                  }
+                } catch (error) {
+                  console.error("Error fitting bounds to waypoints:", error);
+                  // Fallback to Ahmedabad center
+                  map.setView([23.0225, 72.5714], 12);
+                }
 
                 // Add directional arrows to the route using Polyline Decorator
                 if (typeof L.polylineDecorator !== "undefined") {
@@ -1060,8 +1142,22 @@
                 }
 
                 // Fit map to show all delivery points with smaller padding
-                const bounds = L.latLngBounds(waypoints);
-                map.fitBounds(bounds.pad(0.1));
+                try {
+                  if (waypoints.length >= 2) {
+                    const bounds = L.latLngBounds(waypoints);
+                    map.fitBounds(bounds.pad(0.1));
+                  } else if (waypoints.length === 1) {
+                    // If there's only one waypoint, center on it
+                    map.setView(waypoints[0], 15);
+                  } else {
+                    // If no valid waypoints, center on Ahmedabad
+                    map.setView([23.0225, 72.5714], 12);
+                  }
+                } catch (error) {
+                  console.error("Error fitting bounds to waypoints:", error);
+                  // Fallback to Ahmedabad center
+                  map.setView([23.0225, 72.5714], 12);
+                }
               }
             } else {
               // If no route data provided, show interactive map with selectable locations
