@@ -7,13 +7,17 @@ import requests
 import json
 import os
 from chatbot_assistant import DeliveryChatbot
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key')  # Required for session
 predictor = DeliveryPredictor()
 
-# Initialize chatbot with Perplexity API key
-perplexity_api_key = "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"  # Corrected format
+# Initialize chatbot with Perplexity API key from environment variable
+perplexity_api_key = os.environ.get("PERPLEXITY_API_KEY")
 chatbot = DeliveryChatbot(predictor, perplexity_api_key)
 
 # Add a custom Jinja2 filter for dictionary update
