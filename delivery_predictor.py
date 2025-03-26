@@ -279,18 +279,28 @@ class DeliveryPredictor:
         if not customer_names:
             return []
         
-        # Get customer addresses and make sure areas are set correctly
-        addresses = []
+        # Get customer addresses, consolidating multiple orders for the same customer
+        consolidated_addresses = {}
         for name in customer_names:
             if name in self.customer_addresses:
                 # Make sure each customer has the right fixed area
                 area = self.customer_areas.get(name)
+                address = self.customer_addresses.get(name)
                 
-                addresses.append({
-                    'name': name,
-                    'area': area,
-                    'address': self.customer_addresses[name]
-                })
+                if name in consolidated_addresses:
+                    # Increment parcel count for existing customer
+                    consolidated_addresses[name]['parcel_count'] += 1
+                else:
+                    # Add new customer with initial parcel count of 1
+                    consolidated_addresses[name] = {
+                        'name': name,
+                        'area': area,
+                        'address': address,
+                        'parcel_count': 1
+                    }
+        
+        # Convert consolidated dict to list
+        addresses = list(consolidated_addresses.values())
         
         # If only one customer, no need for optimization
         if len(addresses) <= 1:
@@ -346,7 +356,7 @@ class DeliveryPredictor:
         first_leg = {
             'from': 'Start Location (Postman)',
             'from_address': start_location,
-            'to': best_route[0]['name'],
+            'to': best_route[0]['name'] + (f" ({best_route[0]['parcel_count']} parcels)" if best_route[0]['parcel_count'] > 1 else ""),
             'to_address': best_route[0]['address'],
             'distance': distance_matrix[(start_location, best_route[0]['address'])]['text_distance'],
             'duration': distance_matrix[(start_location, best_route[0]['address'])]['text_duration']
@@ -356,17 +366,25 @@ class DeliveryPredictor:
         # Add remaining legs
         for i in range(len(best_route) - 1):
             leg = {
-                'from': best_route[i]['name'],
+                'from': best_route[i]['name'] + (f" ({best_route[i]['parcel_count']} parcels)" if best_route[i]['parcel_count'] > 1 else ""),
                 'from_address': best_route[i]['address'],
-                'to': best_route[i+1]['name'],
+                'to': best_route[i+1]['name'] + (f" ({best_route[i+1]['parcel_count']} parcels)" if best_route[i+1]['parcel_count'] > 1 else ""),
                 'to_address': best_route[i+1]['address'],
                 'distance': distance_matrix[(best_route[i]['address'], best_route[i+1]['address'])]['text_distance'],
                 'duration': distance_matrix[(best_route[i]['address'], best_route[i+1]['address'])]['text_duration']
             }
             route_details.append(leg)
         
+        # Format route names with parcel counts
+        route_names = []
+        for item in best_route:
+            name = item['name']
+            if item['parcel_count'] > 1:
+                name += f" ({item['parcel_count']} parcels)"
+            route_names.append(name)
+        
         return {
-            'route': [item['name'] for item in best_route],
+            'route': route_names,
             'total_distance': f"{min_total_distance:.1f} km",
             'details': route_details
         }

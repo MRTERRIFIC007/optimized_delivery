@@ -21,11 +21,28 @@ def index():
     # Get today's orders for route optimization
     todays_orders = predictor.get_todays_orders()
     
+    # Group today's orders by customer and count parcels
+    grouped_orders = {}
+    for order in todays_orders:
+        customer_name = order['name']
+        if customer_name in grouped_orders:
+            # Increment parcel count for existing customer
+            grouped_orders[customer_name]['parcel_count'] += 1
+        else:
+            # Copy the order and add parcel count
+            grouped_order = order.copy()
+            grouped_order['parcel_count'] = 1
+            grouped_orders[customer_name] = grouped_order
+    
+    # Convert grouped orders dict to list
+    grouped_todays_orders = list(grouped_orders.values())
+    
     return render_template('index.html', 
                           pending_orders=pending_orders,
                           current_day=current_day,
                           names=names,
-                          todays_orders=todays_orders)
+                          todays_orders=todays_orders,
+                          grouped_todays_orders=grouped_todays_orders)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -72,7 +89,19 @@ def optimize_route():
     if not selected_customers:
         # If no customers selected, get today's orders
         todays_orders = predictor.get_todays_orders()
-        selected_customers = [order['name'] for order in todays_orders]
+        # Create a list with customer names, repeating for multiple orders
+        customer_counts = {}
+        for order in todays_orders:
+            name = order['name']
+            if name in customer_counts:
+                customer_counts[name] += 1
+            else:
+                customer_counts[name] = 1
+        
+        # Create the expanded list with customers repeated based on their order count
+        selected_customers = []
+        for name, count in customer_counts.items():
+            selected_customers.extend([name] * count)
     
     optimal_route = predictor.optimize_delivery_route(selected_customers)
     
