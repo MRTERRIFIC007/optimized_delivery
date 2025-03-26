@@ -655,7 +655,7 @@
             Gota: [23.104, 72.5399],
             Maninagar: [22.99617, 72.599586],
             Chandkheda: [23.11842, 72.586777],
-            "Start Location (Postman)": [23.030357, 72.517845], // Same as Satellite
+            "Start Location (Postman)": [23.0269, 72.5297], // Iscon Center, Shivranjani Cross Road coordinates
           };
 
           // Define customer address coordinates for Leaflet geocoding
@@ -724,6 +724,14 @@
               area: "Chandkheda",
               coords: [23.11842, 72.586777],
               geocodeAddress: "Chandkheda, Ahmedabad, Gujarat, India",
+            },
+            "Start Location (Postman)": {
+              address:
+                "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India",
+              area: "Satellite",
+              coords: [23.0269, 72.5297],
+              geocodeAddress:
+                "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India",
             },
           };
 
@@ -795,7 +803,7 @@
             startMarker = L.marker(startLocation, { icon: startIcon })
               .addTo(map)
               .bindPopup(
-                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Satellite</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">All routes start here</div>'
+                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Shivranjani Cross Road</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">All routes start here</div>'
               );
 
             // Open postman popup by default
@@ -819,7 +827,7 @@
             startMarker = L.marker(fallbackLocation, { icon: startIcon })
               .addTo(map)
               .bindPopup(
-                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Ahmedabad Center</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">Fallback location</div>'
+                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Shivranjani Cross Road</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">Fallback location</div>'
               );
 
             // Add fallback circle
