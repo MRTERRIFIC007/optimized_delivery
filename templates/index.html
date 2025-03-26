@@ -1276,44 +1276,7 @@
                     document.getElementById("back-to-start-btn");
                   if (backToStartBtn) {
                     backToStartBtn.addEventListener("click", function () {
-                      // Ensure postmanLocation is valid before using flyTo
-                      if (
-                        !postmanLocation ||
-                        !Array.isArray(postmanLocation) ||
-                        postmanLocation.length !== 2 ||
-                        isNaN(postmanLocation[0]) ||
-                        isNaN(postmanLocation[1])
-                      ) {
-                        console.error(
-                          "Invalid postman location:",
-                          postmanLocation
-                        );
-                        // Use a fallback location for Ahmedabad center
-                        map.flyTo([23.0225, 72.5714], 15, {
-                          animate: true,
-                          duration: 1.5,
-                        });
-                      } else {
-                        // Create a valid LatLng object and use it
-                        const validLatLng = L.latLng(
-                          parseFloat(postmanLocation[0]),
-                          parseFloat(postmanLocation[1])
-                        );
-
-                        // Use flyTo with the validated LatLng
-                        map.flyTo(validLatLng, 15, {
-                          animate: true,
-                          duration: 1.5,
-                        });
-                      }
-
-                      // Open the postman popup if it exists
-                      if (
-                        startMarker &&
-                        typeof startMarker.openPopup === "function"
-                      ) {
-                        startMarker.openPopup();
-                      }
+                      returnToStart();
                     });
                   }
                 }, 100);
@@ -1461,44 +1424,7 @@
                   document.getElementById("back-to-start-btn");
                 if (backToStartBtn) {
                   backToStartBtn.addEventListener("click", function () {
-                    // Ensure postmanLocation is valid before using flyTo
-                    if (
-                      !postmanLocation ||
-                      !Array.isArray(postmanLocation) ||
-                      postmanLocation.length !== 2 ||
-                      isNaN(postmanLocation[0]) ||
-                      isNaN(postmanLocation[1])
-                    ) {
-                      console.error(
-                        "Invalid postman location:",
-                        postmanLocation
-                      );
-                      // Use a fallback location for Ahmedabad center
-                      map.flyTo([23.0225, 72.5714], 15, {
-                        animate: true,
-                        duration: 1.5,
-                      });
-                    } else {
-                      // Create a valid LatLng object and use it
-                      const validLatLng = L.latLng(
-                        parseFloat(postmanLocation[0]),
-                        parseFloat(postmanLocation[1])
-                      );
-
-                      // Use flyTo with the validated LatLng
-                      map.flyTo(validLatLng, 15, {
-                        animate: true,
-                        duration: 1.5,
-                      });
-                    }
-
-                    // Open the postman popup if it exists
-                    if (
-                      startMarker &&
-                      typeof startMarker.openPopup === "function"
-                    ) {
-                      startMarker.openPopup();
-                    }
+                    returnToStart();
                   });
                 }
               }, 100);
