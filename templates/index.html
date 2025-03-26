@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delivery Prediction System</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        padding-top: 20px;
+      }
+      .prediction-result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+      }
+      .time-badge {
+        font-size: 1.1em;
+        margin: 0 5px;
+        padding: 5px 10px;
+      }
+      .failure-rate {
+        font-size: 0.9em;
+        display: block;
+        margin-top: 5px;
+      }
+      .order-card {
+        margin-bottom: 15px;
+      }
+      .route-segment {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-left: 3px solid #0d6efd;
+        background-color: #f8f9fa;
+      }
+      .route-map {
+        height: 400px;
+        width: 100%;
+        border-radius: 5px;
+        margin-top: 15px;
+      }
+      .customer-address {
+        font-size: 0.8em;
+        color: #6c757d;
+        margin-top: 3px;
+      }
+      .checkout-container {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="mb-4">Delivery Prediction System</h1>
+
+      <div class="row">
+        <!-- Left Column -->
+        <div class="col-md-6">
+          <!-- Prediction Section -->
+          <div class="card">
+            <div class="card-header bg-primary text-white">
+              <h4>Predict Optimal Delivery Times</h4>
+            </div>
+            <div class="card-body">
+              <form id="predictionForm">
+                <div class="mb-3">
+                  <label for="name" class="form-label">Customer Name:</label>
+                  <select class="form-select" id="name" name="name" required>
+                    <option value="" selected disabled>
+                      Select a customer
+                    </option>
+                    {% for name in names %}
+                    <option value="{{ name }}">{{ name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="mb-3">
+                  <label for="day" class="form-label">Day of Delivery:</label>
+                  <select class="form-select" id="day" name="day">
+                    <option value="{{ current_day }}" selected>
+                      Today ({{ current_day }})
+                    </option>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                  </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  Predict Optimal Times
+                </button>
+              </form>
+
+              <div
+                id="predictionResult"
+                class="prediction-result"
+                style="display: none"
+              >
+                <h5>
+                  Optimal Delivery Times for <span id="customerName"></span> on
+                  <span id="deliveryDay"></span>:
+                </h5>
+                <div id="optimalTimes" class="mt-3"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add New Order -->
+          <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+              <h4>Add New Order</h4>
+            </div>
+            <div class="card-body">
+              <form id="newOrderForm">
+                <div class="mb-3">
+                  <label for="order_name" class="form-label"
+                    >Customer Name:</label
+                  >
+                  <select
+                    class="form-select"
+                    id="order_name"
+                    name="name"
+                    required
+                  >
+                    <option value="Aditya">Aditya</option>
+                    <option value="Vivaan">Vivaan</option>
+                    <option value="Aarav">Aarav</option>
+                    <option value="Meera">Meera</option>
+                    <option value="Diya">Diya</option>
+                    <option value="Riya">Riya</option>
+                    <option value="Ananya">Ananya</option>
+                    <option value="Aryan">Aryan</option>
+                    <option value="Ishaan">Ishaan</option>
+                    <option value="Kabir">Kabir</option>
+                  </select>
+                </div>
+
+                <div class="mb-3">
+                  <label for="delivery_day" class="form-label"
+                    >Day of Delivery:</label
+                  >
+                  <select
+                    class="form-select"
+                    id="delivery_day"
+                    name="delivery_day"
+                    required
+                  >
+                    <option value="{{ current_day }}">
+                      Today ({{ current_day }})
+                    </option>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                  </select>
+                </div>
+
+                <div class="mb-3">
+                  <label for="area" class="form-label">Area:</label>
+                  <select class="form-select" id="area" name="area" required>
+                    <option value="Satellite">Satellite</option>
+                    <option value="Bopal">Bopal</option>
+                    <option value="Vastrapur">Vastrapur</option>
+                    <option value="Paldi">Paldi</option>
+                    <option value="Thaltej">Thaltej</option>
+                    <option value="Navrangpura">Navrangpura</option>
+                    <option value="Bodakdev">Bodakdev</option>
+                    <option value="Gota">Gota</option>
+                    <option value="Maninagar">Maninagar</option>
+                    <option value="Chandkheda">Chandkheda</option>
+                  </select>
+                </div>
+
+                <div class="mb-3">
+                  <label for="package_size" class="form-label"
+                    >Package Size:</label
+                  >
+                  <select
+                    class="form-select"
+                    id="package_size"
+                    name="package_size"
+                    required
+                  >
+                    <option value="Small">Small</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Large">Large</option>
+                  </select>
+                </div>
+
+                <button type="submit" class="btn btn-success">Add Order</button>
+              </form>
+
+              <div
+                id="orderResult"
+                class="alert alert-success mt-3"
+                style="display: none"
+              >
+                Order added successfully!
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-md-6">
+          <!-- Route Optimization Section -->
+          <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+              <h4>Route Optimization</h4>
+            </div>
+            <div class="card-body">
+              <p>Plan the most efficient delivery route for today's orders.</p>
+
+              <form id="routeOptimizationForm">
+                <div class="mb-3">
+                  <label class="form-label"
+                    >Select Customers for Today's Delivery Route:</label
+                  >
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="selectAllCustomers"
+                    />
+                    <label class="form-check-label" for="selectAllCustomers">
+                      Select All Today's Orders
+                    </label>
+                  </div>
+
+                  <div id="todaysOrdersList" class="mt-2">
+                    {% for order in todays_orders %}
+                    <div class="form-check">
+                      <input
+                        class="form-check-input customer-checkbox"
+                        type="checkbox"
+                        name="selected_customers[]"
+                        value="{{ order.name }}"
+                        id="customer-{{ order.order_id }}"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="customer-{{ order.order_id }}"
+                      >
+                        {{ order.name }} ({{ order.area }})
+                        <div class="customer-address">{{ order.address }}</div>
+                      </label>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-info">
+                  Optimize Route
+                </button>
+              </form>
+
+              <div id="routeResult" class="mt-4" style="display: none">
+                <h5>Optimal Delivery Route:</h5>
+                <div class="alert alert-info">
+                  <span id="routeSummary"></span>
+                  <div id="totalDistance" class="mt-2"></div>
+                </div>
+
+                <div id="routeDetails"></div>
+
+                <div id="routeMap" class="route-map"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending Orders -->
+          <div class="card">
+            <div class="card-header bg-warning">
+              <h4>Pending Orders ({{ pending_orders|length }})</h4>
+            </div>
+            <div class="card-body">
+              <div class="list-group" id="ordersContainer">
+                {% for order in pending_orders %}
+                <div class="card order-card">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      Order #{{ order.order_id }}: {{ order.name }}
+                    </h5>
+                    <p class="card-text">
+                      <strong>Delivery Day:</strong> {{ order.delivery_day }}<br />
+                      <strong>Area:</strong> {{ order.area }}<br />
+                      <strong>Address:</strong> {{ order.address }}<br />
+                      <strong>Package Size:</strong> {{ order.package_size }}<br />
+                      <strong>Status:</strong>
+                      <span class="badge bg-warning">{{ order.status }}</span
+                      ><br />
+                      <strong>Created:</strong> {{ order.created_at }}
+                    </p>
+                    <div class="btn-group" role="group">
+                      <a
+                        href="/mark_delivered/{{ order.order_id }}?success=true"
+                        class="btn btn-success btn-sm"
+                        >Mark as Delivered</a
+                      >
+                      <a
+                        href="/mark_delivered/{{ order.order_id }}?success=false"
+                        class="btn btn-danger btn-sm"
+                        >Mark as Failed</a
+                      >
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      $(document).ready(function () {
+        // Prediction form submission
+        $("#predictionForm").submit(function (e) {
+          e.preventDefault();
+
+          $.ajax({
+            url: "/predict",
+            type: "POST",
+            data: $(this).serialize(),
+            success: function (response) {
+              $("#customerName").text(response.name);
+              $("#deliveryDay").text(response.day);
+
+              let timesHtml = "";
+              response.optimal_times.forEach(function (prediction) {
+                if (typeof prediction === "object") {
+                  timesHtml += `
+                    <div class="mb-2">
+                      <span class="badge bg-primary time-badge">${prediction.time}</span>
+                      <span class="badge bg-danger failure-rate">${prediction.failure_rate}% Failure Rate</span>
+                    </div>
+                  `;
+                } else {
+                  timesHtml += `<span class="badge bg-primary time-badge">${prediction}</span>`;
+                }
+              });
+
+              $("#optimalTimes").html(timesHtml);
+              $("#predictionResult").show();
+            },
+          });
+        });
+
+        // New order form submission
+        $("#newOrderForm").submit(function (e) {
+          e.preventDefault();
+
+          $.ajax({
+            url: "/add_order",
+            type: "POST",
+            data: $(this).serialize(),
+            success: function (response) {
+              $("#orderResult").show().delay(3000).fadeOut();
+              setTimeout(function () {
+                location.reload();
+              }, 3000);
+            },
+          });
+        });
+
+        // Select/deselect all customers
+        $("#selectAllCustomers").change(function () {
+          $(".customer-checkbox").prop("checked", $(this).prop("checked"));
+        });
+
+        // Route optimization form submission
+        $("#routeOptimizationForm").submit(function (e) {
+          e.preventDefault();
+
+          $.ajax({
+            url: "/optimize_route",
+            type: "POST",
+            data: $(this).serialize(),
+            success: function (response) {
+              // Display route summary
+              $("#routeSummary").html(
+                `Optimal delivery order: <strong>${response.route.join(
+                  " → "
+                )}</strong>`
+              );
+              $("#totalDistance").html(
+                `Total distance: <strong>${response.total_distance}</strong>`
+              );
+
+              // Display detailed route
+              let routeDetailsHtml = "";
+              response.details.forEach(function (leg, index) {
+                routeDetailsHtml += `
+                  <div class="route-segment">
+                    <div class="fw-bold">Leg ${index + 1}: ${leg.from} → ${
+                  leg.to
+                }</div>
+                    <div class="mt-1">
+                      <span class="badge bg-secondary me-2">Distance: ${
+                        leg.distance
+                      }</span>
+                      <span class="badge bg-secondary">Duration: ${
+                        leg.duration
+                      }</span>
+                    </div>
+                    <div class="customer-address mt-2">
+                      <div><small>From: ${leg.from_address}</small></div>
+                      <div><small>To: ${leg.to_address}</small></div>
+                    </div>
+                  </div>
+                `;
+              });
+
+              $("#routeDetails").html(routeDetailsHtml);
+
+              // Initialize Google Maps with the route (simplified version)
+              initRouteMap(response);
+
+              // Show the result
+              $("#routeResult").show();
+            },
+          });
+        });
+
+        // Function to initialize the route map (simplified version without actual Google Maps API calls)
+        function initRouteMap(routeData) {
+          // In a real implementation, this would initialize a Google Map and draw the route
+          // For this demo, we'll just show a placeholder
+          $("#routeMap").html(`
+            <div class="alert alert-secondary text-center">
+              <p><i class="bi bi-map"></i> Interactive map would be displayed here showing the optimized route:</p>
+              <p class="fw-bold">${routeData.route.join(" → ")}</p>
+              <p class="text-muted">Total distance: ${
+                routeData.total_distance
+              }</p>
+              <p class="small text-muted">A real implementation would use the Google Maps JavaScript API to render an interactive map with the route.</p>
+            </div>
+          `);
+        }
+      });
+    </script>
+  </body>
+</html>
