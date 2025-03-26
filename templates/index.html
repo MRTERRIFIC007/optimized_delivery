@@ -564,105 +564,125 @@
               // Add "from" marker for the first leg (start location)
               if (index === 0) {
                 const fromName = leg.from;
-                const coords = areaCoordinates["Start Location (Postman)"];
+                // Get coordinates or default to Satellite if not found
+                const startCoords = areaCoordinates["Start Location (Postman)"];
 
-                // Create a custom icon for the start location
-                const startIcon = L.divIcon({
-                  className: "custom-div-icon",
-                  html: `<div style="background-color: #198754; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">S</div>`,
-                  iconSize: [30, 30],
-                  iconAnchor: [15, 15],
-                });
+                // Only add marker if coordinates are valid
+                if (startCoords && startCoords.length === 2) {
+                  // Create a custom icon for the start location
+                  const startIcon = L.divIcon({
+                    className: "custom-div-icon",
+                    html: `<div style="background-color: #198754; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">S</div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15],
+                  });
 
-                const marker = L.marker(coords, { icon: startIcon })
-                  .addTo(map)
-                  .bindPopup(
-                    `<b>Start:</b> ${fromName}<br>${leg.from_address}<br><b>Next stop:</b> ${leg.to}`
-                  );
+                  const marker = L.marker(startCoords, { icon: startIcon })
+                    .addTo(map)
+                    .bindPopup(
+                      `<b>Start:</b> ${fromName}<br>${leg.from_address}<br><b>Next stop:</b> ${leg.to}`
+                    );
 
-                markers.push(marker);
-                points.push(coords);
+                  markers.push(marker);
+                  points.push(startCoords);
+                }
               }
 
               // Add "to" marker for all legs
               const toName = leg.to;
               const customerName = toName.split(" (")[0];
-              const coords = areaCoordinates[customerName];
 
-              // Create a custom icon for delivery stops with sequential numbering
-              const deliveryIcon = L.divIcon({
-                className: "custom-div-icon",
-                html: `<div style="background-color: #0d6efd; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">${
-                  index + 1
-                }</div>`,
-                iconSize: [26, 26],
-                iconAnchor: [13, 13],
-              });
+              // Get coordinates for this stop, or use a default if not found
+              const stopCoords = areaCoordinates[customerName];
 
-              // Add information about parcel count if applicable
-              let popupContent = `<b>Stop ${index + 1}:</b> ${toName}<br>`;
-              popupContent += `<b>Address:</b> ${leg.to_address}<br>`;
-              popupContent += `<b>Distance:</b> ${leg.distance}<br>`;
-              popupContent += `<b>Duration:</b> ${leg.duration}`;
+              // Only add marker if coordinates are valid
+              if (stopCoords && stopCoords.length === 2) {
+                // Create a custom icon for delivery stops with sequential numbering
+                const deliveryIcon = L.divIcon({
+                  className: "custom-div-icon",
+                  html: `<div style="background-color: #0d6efd; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">${
+                    index + 1
+                  }</div>`,
+                  iconSize: [26, 26],
+                  iconAnchor: [13, 13],
+                });
 
-              const marker = L.marker(coords, { icon: deliveryIcon })
-                .addTo(map)
-                .bindPopup(popupContent);
+                // Add information about parcel count if applicable
+                let popupContent = `<b>Stop ${index + 1}:</b> ${toName}<br>`;
+                popupContent += `<b>Address:</b> ${leg.to_address}<br>`;
+                popupContent += `<b>Distance:</b> ${leg.distance}<br>`;
+                popupContent += `<b>Duration:</b> ${leg.duration}`;
 
-              markers.push(marker);
-              points.push(coords);
+                const marker = L.marker(stopCoords, { icon: deliveryIcon })
+                  .addTo(map)
+                  .bindPopup(popupContent);
+
+                markers.push(marker);
+                points.push(stopCoords);
+              }
             });
 
-            // Create a polyline with arrows to show the route direction
-            const arrowPolyline = L.polyline(points, {
-              color: "#0d6efd",
-              weight: 4,
-              opacity: 0.7,
-              dashArray: "10, 10",
-              dashOffset: "0",
-            }).addTo(map);
-
-            // Add a solid line beneath for better visibility
-            const solidPolyline = L.polyline(points, {
-              color: "#0d6efd",
-              weight: 2,
-              opacity: 0.9,
-            }).addTo(map);
-
-            // Add arrows to indicate direction
-            const arrowHeads = [];
-            for (let i = 0; i < points.length - 1; i++) {
-              const p1 = points[i];
-              const p2 = points[i + 1];
-
-              // Calculate midpoint for arrow
-              const midX = (p1[0] + p2[0]) / 2;
-              const midY = (p1[1] + p2[1]) / 2;
-
-              // Calculate angle
-              const angle =
-                (Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180) / Math.PI;
-
-              // Create arrow marker
-              const arrowIcon = L.divIcon({
-                className: "arrow-icon",
-                html: `<div style="transform: rotate(${
-                  angle + 90
-                }deg); color: #0d6efd;">➤</div>`,
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-              });
-
-              const arrowMarker = L.marker([midX, midY], {
-                icon: arrowIcon,
-                interactive: false,
+            // Only create polylines if we have at least 2 valid points
+            if (points.length >= 2) {
+              // Create a polyline with arrows to show the route direction
+              const arrowPolyline = L.polyline(points, {
+                color: "#0d6efd",
+                weight: 4,
+                opacity: 0.7,
+                dashArray: "10, 10",
+                dashOffset: "0",
               }).addTo(map);
-              arrowHeads.push(arrowMarker);
-            }
 
-            // Fit the map to show all markers with padding
-            const bounds = L.latLngBounds(points);
-            map.fitBounds(bounds.pad(0.2));
+              // Add a solid line beneath for better visibility
+              const solidPolyline = L.polyline(points, {
+                color: "#0d6efd",
+                weight: 2,
+                opacity: 0.9,
+              }).addTo(map);
+
+              // Add arrows to indicate direction
+              const arrowHeads = [];
+              for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i];
+                const p2 = points[i + 1];
+
+                // Ensure both points are valid before calculating midpoint
+                if (p1 && p2 && p1.length === 2 && p2.length === 2) {
+                  // Calculate midpoint for arrow
+                  const midX = (p1[0] + p2[0]) / 2;
+                  const midY = (p1[1] + p2[1]) / 2;
+
+                  // Calculate angle
+                  const angle =
+                    (Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180) / Math.PI;
+
+                  // Create arrow marker
+                  const arrowIcon = L.divIcon({
+                    className: "arrow-icon",
+                    html: `<div style="transform: rotate(${
+                      angle + 90
+                    }deg); color: #0d6efd;">➤</div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10],
+                  });
+
+                  const arrowMarker = L.marker([midX, midY], {
+                    icon: arrowIcon,
+                    interactive: false,
+                  }).addTo(map);
+                  arrowHeads.push(arrowMarker);
+                }
+              }
+
+              // Fit the map to show all markers with padding
+              if (points.length > 0) {
+                const bounds = L.latLngBounds(points);
+                map.fitBounds(bounds.pad(0.2));
+              }
+            } else if (points.length === 1) {
+              // If only one point, center on it
+              map.setView(points[0], 14);
+            }
 
             // Show total distance and route information in a custom control
             const routeInfoControl = L.control({ position: "bottomright" });
