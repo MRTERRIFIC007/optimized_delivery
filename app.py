@@ -1,13 +1,20 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import pandas as pd
 from delivery_predictor import DeliveryPredictor
 from datetime import datetime
 import argparse
 import requests
 import json
+import os
+from chatbot_assistant import DeliveryChatbot
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key')  # Required for session
 predictor = DeliveryPredictor()
+
+# Initialize chatbot with Perplexity API key
+perplexity_api_key = os.environ.get("PERPLEXITY_API_KEY", None)
+chatbot = DeliveryChatbot(predictor, perplexity_api_key)
 
 # Add a custom Jinja2 filter for dictionary update
 @app.template_filter('dict_concat')
@@ -111,6 +118,30 @@ def mark_delivered(order_id):
     
     return redirect(url_for('index'))
 
+@app.route('/chat', methods=['POST'])
+def chat():
+    """Process a chat message from the postman"""
+    if not request.is_json:
+        return jsonify({'error': 'Request must be JSON'}), 400
+        
+    message = request.json.get('message', '')
+    if not message:
+        return jsonify({'error': 'No message provided'}), 400
+    
+    # Get current context
+    current_context = {}
+    
+    # If we have an active route optimization, include it
+    if 'last_route_optimization' in session:
+        current_context['optimized_route'] = session['last_route_optimization']
+    
+    # Process the query through the chatbot
+    response = chatbot.process_query(message, current_context)
+    
+    return jsonify({
+        'response': response
+    })
+
 @app.route('/optimize_route', methods=['POST'])
 def optimize_route():
     """Optimize delivery route for selected customers"""
@@ -134,6 +165,9 @@ def optimize_route():
             selected_customers.extend([name] * count)
     
     optimal_route = predictor.optimize_delivery_route(selected_customers)
+    
+    # Store the optimized route in session for chatbot context
+    session['last_route_optimization'] = optimal_route
     
     return jsonify(optimal_route)
 
