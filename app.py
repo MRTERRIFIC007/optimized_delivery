@@ -49,10 +49,13 @@ def index():
         if customer_name in grouped_orders:
             # Increment parcel count for existing customer
             grouped_orders[customer_name]['parcel_count'] += 1
+            # Add order ID to the list
+            grouped_orders[customer_name]['order_ids'].append(order['order_id'])
         else:
             # Copy the order and add parcel count
             grouped_order = order.copy()
             grouped_order['parcel_count'] = 1
+            grouped_order['order_ids'] = [order['order_id']]
             grouped_orders[customer_name] = grouped_order
     
     # Convert grouped orders dict to list
@@ -236,20 +239,6 @@ def geocode():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@app.route('/admin/otp')
-def admin_otp():
-    """Admin page to view all active OTPs (for demonstration only)"""
-    if not hasattr(predictor, 'order_otps'):
-        return render_template('admin_otp.html', otps={}, orders=[])
-        
-    # Get all orders with active OTPs
-    orders = []
-    for order in predictor.get_pending_orders():
-        if order['order_id'] in predictor.order_otps:
-            orders.append(order)
-    
-    return render_template('admin_otp.html', otps=predictor.order_otps, orders=orders)
 
 if __name__ == '__main__':
     # Parse command line arguments

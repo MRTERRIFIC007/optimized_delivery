@@ -321,11 +321,20 @@ class DeliveryPredictor:
                 'to_address': route[i+1]
             })
         
+        # Make sure to load the latest pending orders
+        try:
+            with open('pending_orders.json', 'r') as f:
+                self.pending_orders = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        
         # Generate OTPs for each order in the optimized route
         order_details = []
         for name in customer_names:
-            # Find all pending orders for this customer
-            customer_orders = [order for order in self.pending_orders if order['name'] == name]
+            # Find all pending orders for this customer scheduled for today
+            current_day = datetime.now().strftime('%A')
+            customer_orders = [order for order in self.pending_orders 
+                              if order['name'] == name and order['delivery_day'] == current_day]
             
             for order in customer_orders:
                 # Generate OTP for each order
@@ -483,6 +492,14 @@ class DeliveryPredictor:
     
     def get_pending_orders(self):
         """Return the list of pending orders"""
+        # Ensure pending_orders is loaded from the JSON file
+        try:
+            with open('pending_orders.json', 'r') as f:
+                self.pending_orders = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            # If file doesn't exist or has invalid JSON, keep using existing pending_orders
+            pass
+            
         return self.pending_orders
     
     def add_order(self, name, delivery_day, package_size=None):
@@ -517,6 +534,15 @@ class DeliveryPredictor:
     def get_todays_orders(self):
         """Get orders scheduled for today"""
         current_day = datetime.now().strftime('%A')
+        
+        # Ensure pending_orders is loaded from the JSON file
+        try:
+            with open('pending_orders.json', 'r') as f:
+                self.pending_orders = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            # If file doesn't exist or has invalid JSON, keep using existing pending_orders
+            pass
+            
         return [order for order in self.pending_orders if order['delivery_day'] == current_day]
 
     def _get_current_time_slot(self):
