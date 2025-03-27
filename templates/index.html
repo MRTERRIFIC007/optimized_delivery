@@ -328,19 +328,28 @@
               </div>
 
               <div id="routeResult" class="mt-4" style="display: none">
-                <h5>Optimal Delivery Route:</h5>
-                <div class="alert alert-info">
-                  <span id="routeSummary"></span>
-                  <div id="totalDistance" class="mt-2"></div>
+                <h5 id="routeSummary" class="mb-3">Optimal Delivery Route:</h5>
+
+                <div id="distance-container" class="alert alert-info">
+                  <strong>Total Distance:</strong>
+                  <span id="total-distance"></span> km
                 </div>
 
-                <div id="routeDetails"></div>
+                <div id="map" class="route-map mb-3"></div>
 
-                <div id="routeMap" class="route-map"></div>
+                <div id="route-details" class="mt-4">
+                  <h5>Route Details</h5>
+                  <div id="route-stops">
+                    <!-- Table will be inserted here by JavaScript -->
+                  </div>
+                </div>
 
                 <div class="mt-3 text-end">
                   <button id="resetRouteBtn" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-counterclockwise"></i> Plan New Route
+                  </button>
+                  <button id="returnToStart" class="btn btn-primary">
+                    <i class="bi bi-house"></i> Return to Start
                   </button>
                 </div>
               </div>
@@ -575,6 +584,56 @@
         // Initialize area display
         updateAreaInfo();
 
+        // Check if we have a scheduled route to display after page reload
+        if (localStorage.getItem("scheduleSuccess") === "true") {
+          try {
+            const scheduledRoute = JSON.parse(
+              localStorage.getItem("scheduledRoute")
+            );
+            if (scheduledRoute && scheduledRoute.route) {
+              // Clear the success flag
+              localStorage.removeItem("scheduleSuccess");
+
+              // Auto-check the customer checkboxes based on the route
+              $("#selectAllCustomers").prop("checked", true);
+              $(".customer-checkbox").each(function () {
+                // Get customer name from the checkbox
+                const customerName = $(this).val();
+
+                // Check if this customer is in the route
+                if (
+                  scheduledRoute.route.some((routeItem) =>
+                    routeItem.startsWith(customerName)
+                  )
+                ) {
+                  $(this).prop("checked", true);
+                }
+              });
+
+              // Show loading indicator briefly
+              $("#routeLoadingIndicator").show();
+
+              // Display the optimized route after a short delay
+              setTimeout(function () {
+                $("#routeLoadingIndicator").hide();
+                displayOptimizedRoute(scheduledRoute);
+
+                // Scroll to the route result
+                $("html, body").animate(
+                  {
+                    scrollTop: $("#routeResult").offset().top - 50,
+                  },
+                  500
+                );
+              }, 500);
+            }
+          } catch (error) {
+            console.error("Error processing scheduled route:", error);
+            localStorage.removeItem("scheduleSuccess");
+            localStorage.removeItem("scheduledRoute");
+          }
+        }
+
         // Reset route planning
         $(document).on("click", "#resetRouteBtn", function () {
           // Clear checkboxes
@@ -697,65 +756,366 @@
           });
         });
 
-        // Display optimized route
-        function displayOptimizedRoute(routeData) {
-          $("#routeLoadingIndicator").hide();
-
-          // Check if we have route data
-          if (!routeData || !routeData.route || routeData.route.length === 0) {
-            $("#routeResult").hide();
-            alert(
-              "No valid route could be calculated. Please select at least one customer."
-            );
-            return;
-          }
-
-          // Format route summary
-          const routeLength = routeData.route.length;
-          $("#routeSummary").text(
-            `Your optimized route includes ${routeLength} stop${
-              routeLength > 1 ? "s" : ""
-            }.`
-          );
-          $("#totalDistance").text(
-            `Total distance: ${routeData.total_distance} km`
-          );
-
-          // Format route details
-          let routeDetailsHtml = "";
-
-          routeData.route.forEach((stop, index) => {
-            // Determine if this is the start/end point
-            const isStartOrEnd = stop === "Start Location (Postman)";
-            const bgClass = isStartOrEnd ? "bg-success" : "bg-light";
-            const textClass = isStartOrEnd ? "text-white" : "";
-
-            // Get distance to next stop if available
-            let distanceText = "";
-            if (routeData.distances && index < routeData.distances.length) {
-              distanceText = `<div class="mt-1 text-muted">↓ ${routeData.distances[index]} km to next stop</div>`;
-            }
-
-            routeDetailsHtml += `
-              <div class="route-segment ${bgClass} ${textClass}">
-                <div class="d-flex justify-content-between align-items-center">
-                  <span>${index + 1}. ${stop}</span>
-                  <span class="badge bg-info">${
-                    isStartOrEnd ? "Postman" : routeData.areas[index]
-                  }</span>
-                </div>
-                ${distanceText}
-              </div>
-            `;
-          });
-
-          $("#routeDetails").html(routeDetailsHtml);
-
-          // Show the route result
+        // Function to display the optimized route
+        function displayOptimizedRoute(route) {
+          // Show the route details section
+          $("#route-details").show();
           $("#routeResult").show();
 
-          // Initialize map if it's available
-          initRouteMap(routeData);
+          // Update the route summary
+          $("#routeSummary").text(
+            `Optimal delivery route with ${route.route.length - 1} stops`
+          );
+
+          // Clear previous route details
+          $("#route-stops").empty();
+
+          // Add each stop to the route details
+          if (route.route && route.route.length > 0) {
+            // Start populating the table
+            var tableHtml = `
+                  <table class="table">
+                      <thead>
+                          <tr>
+                              <th>#</th>
+                              <th>Location</th>
+                              <th>Area</th>
+                              <th>Address</th>
+                              <th>Distance</th>
+                          </tr>
+                      </thead>
+                      <tbody>`;
+
+            let stopNumber = 0;
+
+            // Loop through each location in the route
+            for (let i = 0; i < route.route.length; i++) {
+              let location = route.route[i];
+              let area =
+                route.areas && route.areas[i] ? route.areas[i] : "Unknown";
+              let address =
+                route.addresses && route.addresses[i]
+                  ? route.addresses[i]
+                  : "Unknown";
+              let distance =
+                route.distances && route.distances[i]
+                  ? route.distances[i] + " km"
+                  : "";
+
+              // Skip "Start Location (Postman)" in the count but still show it
+              if (location.includes("Start Location")) {
+                tableHtml += `
+                          <tr class="table-primary">
+                              <td><i class="bi bi-house-fill"></i></td>
+                              <td>${location}</td>
+                              <td>${area}</td>
+                              <td>${address}</td>
+                              <td>${distance}</td>
+                          </tr>`;
+              } else {
+                stopNumber++;
+
+                // Check if this is a customer with multiple parcels
+                let parcelCount = 1;
+                let displayName = location;
+
+                if (location.includes(" (")) {
+                  // Extract the parcel count if it exists
+                  let match = location.match(/ \((\d+)\)/);
+                  if (match && match[1]) {
+                    parcelCount = parseInt(match[1]);
+                  }
+
+                  // Extract just the name portion
+                  displayName = location.split(" (")[0];
+                }
+
+                tableHtml += `
+                          <tr>
+                              <td>${stopNumber}</td>
+                              <td>${displayName}${
+                  parcelCount > 1
+                    ? ` <span class="badge bg-info">${parcelCount} parcels</span>`
+                    : ""
+                }</td>
+                              <td>${area}</td>
+                              <td>${address}</td>
+                              <td>${distance}</td>
+                          </tr>`;
+              }
+            }
+
+            // Complete the table
+            tableHtml += `
+                      </tbody>
+                  </table>`;
+
+            // Add the table to the route-stops element
+            $("#route-stops").html(tableHtml);
+
+            // Show total distance if available
+            if (route.total_distance) {
+              $("#total-distance").text(route.total_distance);
+              $("#distance-container").show();
+            } else {
+              $("#distance-container").hide();
+            }
+
+            // Initialize the map with the route
+            initMap(route);
+          }
+        }
+
+        // Initialize the map with the optimized route
+        function initMap(routeData) {
+          // Clear any existing map
+          if (window.map) {
+            window.map.remove();
+          }
+
+          // Default center (Ahmedabad)
+          const defaultCenter = [23.0225, 72.5714];
+
+          // Initialize postman location (start location)
+          let postmanLocation;
+          try {
+            const startLocationName = "Start Location (Postman)";
+            const startIndex = routeData.route.findIndex((loc) =>
+              loc.includes(startLocationName)
+            );
+
+            if (
+              startIndex !== -1 &&
+              routeData.coordinates &&
+              routeData.coordinates[startIndex]
+            ) {
+              // Get coordinates from the route data
+              const rawCoords = routeData.coordinates[startIndex];
+              if (
+                Array.isArray(rawCoords) &&
+                rawCoords.length === 2 &&
+                !isNaN(parseFloat(rawCoords[0])) &&
+                !isNaN(parseFloat(rawCoords[1]))
+              ) {
+                postmanLocation = [
+                  parseFloat(rawCoords[0]),
+                  parseFloat(rawCoords[1]),
+                ];
+              } else {
+                console.warn(
+                  "Invalid start location coordinates, using default"
+                );
+                postmanLocation = defaultCenter;
+              }
+            } else {
+              console.warn("Start location not found in route, using default");
+              postmanLocation = defaultCenter;
+            }
+          } catch (error) {
+            console.error("Error initializing postman location", error);
+            postmanLocation = defaultCenter;
+          }
+
+          // Create the map
+          window.map = L.map("map").setView(postmanLocation, 13);
+
+          // Add the tile layer (OpenStreetMap)
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          }).addTo(window.map);
+
+          // Prepare waypoints for the route
+          const waypoints = [];
+          const validLocations = [];
+
+          // Process each location in the route
+          routeData.route.forEach((location, index) => {
+            if (routeData.coordinates && routeData.coordinates[index]) {
+              const coords = routeData.coordinates[index];
+
+              // Validate coordinates
+              if (
+                Array.isArray(coords) &&
+                coords.length === 2 &&
+                !isNaN(parseFloat(coords[0])) &&
+                !isNaN(parseFloat(coords[1]))
+              ) {
+                const lat = parseFloat(coords[0]);
+                const lng = parseFloat(coords[1]);
+
+                // Add to waypoints for routing
+                waypoints.push(L.latLng(lat, lng));
+
+                // Store valid location data for markers
+                validLocations.push({
+                  name: location,
+                  coords: [lat, lng],
+                  area:
+                    routeData.areas && routeData.areas[index]
+                      ? routeData.areas[index]
+                      : "Unknown",
+                  address:
+                    routeData.addresses && routeData.addresses[index]
+                      ? routeData.addresses[index]
+                      : "Unknown",
+                  isStart: location.includes("Start Location"),
+                });
+              }
+            }
+          });
+
+          // Add markers for each valid location
+          validLocations.forEach((location, index) => {
+            // Create custom marker icon
+            let icon;
+
+            if (location.isStart) {
+              // Special icon for start location
+              icon = L.divIcon({
+                className: "custom-div-icon",
+                html: `<div style="background-color:#38761d; color:white; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px; font-weight:bold;">S</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+              });
+            } else {
+              // Numbered icons for other stops
+              icon = L.divIcon({
+                className: "custom-div-icon",
+                html: `<div style="background-color:#2c88d9; color:white; width:25px; height:25px; border-radius:50%; text-align:center; line-height:25px; font-weight:bold;">${index}</div>`,
+                iconSize: [25, 25],
+                iconAnchor: [12, 12],
+              });
+            }
+
+            // Create marker with the icon
+            const marker = L.marker(location.coords, { icon }).addTo(
+              window.map
+            );
+
+            // Add popup with location info
+            marker.bindPopup(`
+              <strong>${location.name}</strong><br>
+              Area: ${location.area}<br>
+              Address: ${location.address}
+            `);
+
+            // Open popup for start location
+            if (location.isStart && marker.openPopup) {
+              marker.openPopup();
+            }
+          });
+
+          // Try to create a route with Leaflet Routing Machine
+          try {
+            if (waypoints.length >= 2) {
+              // Create the route
+              const routeControl = L.Routing.control({
+                waypoints: waypoints,
+                routeWhileDragging: false,
+                addWaypoints: false,
+                createMarker: function () {
+                  return null;
+                }, // No markers from routing machine
+                lineOptions: {
+                  styles: [{ color: "#0000FF", opacity: 0.7, weight: 5 }],
+                },
+                show: false, // Don't show the routing instructions
+              }).addTo(window.map);
+
+              // Store for later use
+              window.routeControl = routeControl;
+
+              // Add arrow decorators to the route
+              routeControl.on("routesfound", function (e) {
+                const routes = e.routes;
+
+                if (routes && routes.length > 0) {
+                  // Get the route coordinates
+                  const routeCoordinates = routes[0].coordinates;
+
+                  // Create a polyline from the coordinates
+                  const polyline = L.polyline(routeCoordinates);
+
+                  // Add arrow decorators
+                  const decorator = L.polylineDecorator(polyline, {
+                    patterns: [
+                      {
+                        offset: 25,
+                        repeat: 100,
+                        symbol: L.Symbol.arrowHead({
+                          pixelSize: 15,
+                          polygon: false,
+                          pathOptions: {
+                            stroke: true,
+                            color: "#22a",
+                            weight: 3,
+                          },
+                        }),
+                      },
+                    ],
+                  }).addTo(window.map);
+
+                  // Store for cleanup
+                  window.routeDecorator = decorator;
+                }
+              });
+            } else {
+              // Fallback to simple polyline if not enough waypoints
+              console.warn("Not enough valid waypoints for routing");
+              if (waypoints.length > 0) {
+                L.polyline(waypoints, { color: "blue" }).addTo(window.map);
+              }
+            }
+          } catch (error) {
+            console.error("Error creating route:", error);
+            // Fallback to simple polyline
+            if (waypoints.length > 0) {
+              L.polyline(waypoints, { color: "blue" }).addTo(window.map);
+            }
+          }
+
+          // Fit map bounds to include all waypoints
+          if (waypoints.length > 0) {
+            try {
+              window.map.fitBounds(L.latLngBounds(waypoints).pad(0.2));
+            } catch (error) {
+              console.error("Error fitting bounds:", error);
+              // Fallback to center on first waypoint
+              if (waypoints[0]) {
+                window.map.setView(waypoints[0], 12);
+              }
+            }
+          }
+
+          // Add event handlers for the reset and return buttons
+          $("#resetRouteBtn")
+            .off("click")
+            .on("click", function () {
+              $("#routeResult").hide();
+              $(".customer-checkbox").prop("checked", false);
+              $("#selectAllCustomers").prop("checked", false);
+            });
+
+          $("#returnToStart")
+            .off("click")
+            .on("click", function () {
+              // Fly to the start location
+              if (postmanLocation && window.map) {
+                window.map.flyTo(postmanLocation, 15);
+
+                // Find and open the start marker popup
+                validLocations.forEach((location) => {
+                  if (
+                    location.isStart &&
+                    location.marker &&
+                    typeof location.marker.openPopup === "function"
+                  ) {
+                    location.marker.openPopup();
+                  }
+                });
+              }
+            });
         }
 
         // Handle chat minimize/maximize
@@ -934,9 +1294,6 @@
           // Show loading indicator
           $("#routeLoadingIndicator").show();
 
-          // Clear any existing selected customers in the route form
-          $(".customer-checkbox").prop("checked", false);
-
           // Prepare the data
           const formData = new FormData();
 
@@ -963,6 +1320,21 @@
                 // Show success message
                 alert(response.message);
 
+                // Scroll to the route optimization section
+                $("html, body").animate(
+                  {
+                    scrollTop: $("#routeOptimizationForm").offset().top - 50,
+                  },
+                  500
+                );
+
+                // Reload the page to reflect the updated orders, but keep the response data to use after reload
+                localStorage.setItem(
+                  "scheduledRoute",
+                  JSON.stringify(response.optimized_route)
+                );
+                localStorage.setItem("scheduleSuccess", "true");
+
                 // Update the route optimization view with the new route
                 displayOptimizedRoute(response.optimized_route);
 
@@ -973,7 +1345,7 @@
                 // Reload the page to reflect the updated orders
                 setTimeout(function () {
                   location.reload();
-                }, 3000);
+                }, 2000);
               } else {
                 alert("Error: " + response.message);
               }

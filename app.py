@@ -151,10 +151,12 @@ def optimize_route():
     """Optimize delivery route for selected customers"""
     selected_customers = request.form.getlist('selected_customers[]')
     
-    if not selected_customers:
+    # Check if any customers were selected
+    if not selected_customers or len(selected_customers) == 0:
         # If no customers selected, get today's orders
         todays_orders = predictor.get_todays_orders()
-        # Create a list with customer names, repeating for multiple orders
+        
+        # Count customers
         customer_counts = {}
         for order in todays_orders:
             name = order['name']
@@ -162,13 +164,54 @@ def optimize_route():
                 customer_counts[name] += 1
             else:
                 customer_counts[name] = 1
-        
-        # Create the expanded list with customers repeated based on their order count
+                
+        # Create list with customers repeated based on their order count
         selected_customers = []
         for name, count in customer_counts.items():
             selected_customers.extend([name] * count)
     
+    # Optimize the delivery route
     optimal_route = predictor.optimize_delivery_route(selected_customers)
+    
+    # Enhance the response with address information for UI display
+    if 'route' in optimal_route:
+        areas = []
+        addresses = []
+        distances = []
+        coordinates = []
+        
+        # Extract customer info
+        for i, customer in enumerate(optimal_route['route']):
+            # Extract customer name without the parcel count
+            name = customer.split(' (')[0] if ' (' in customer else customer
+            
+            # Get area and address info
+            area = predictor.customer_areas.get(name, "Unknown")
+            address = predictor.customer_addresses.get(name, "Unknown address")
+            
+            # Get coordinates for this customer or location
+            if name == "Start Location (Postman)":
+                area = "Satellite"  # Postman location is in Satellite
+                address = predictor.default_location
+                coords = predictor.area_coordinates.get("Satellite", [23.0225, 72.5714])
+            else:
+                coords = predictor.get_customer_coordinates(name)
+            
+            areas.append(area)
+            addresses.append(address)
+            coordinates.append(coords)
+            
+            # Extract distances from route details if available
+            if 'details' in optimal_route and i < len(optimal_route['details']):
+                leg = optimal_route['details'][i]
+                distance = leg.get('distance', '').replace(' km', '')
+                distances.append(distance)
+        
+        # Add the areas, addresses, coordinates and distances to the response
+        optimal_route['areas'] = areas
+        optimal_route['addresses'] = addresses
+        optimal_route['coordinates'] = coordinates
+        optimal_route['distances'] = distances
     
     # Store the optimized route in session for chatbot context
     session['last_route_optimization'] = optimal_route
@@ -243,11 +286,62 @@ def schedule_for_today():
         # Update the order in the predictor
         predictor.update_order(order.get('order_id', order.get('id')), {'delivery_day': today})
     
-    # Extract customer names for route optimization
-    customer_names = [order['name'] for order in scheduled_orders]
+    # Extract customer names for route optimization, counting repeated customers
+    customer_counts = {}
+    for order in scheduled_orders:
+        name = order['name']
+        if name in customer_counts:
+            customer_counts[name] += 1
+        else:
+            customer_counts[name] = 1
+    
+    # Create the expanded list with customers repeated based on their order count
+    customer_names = []
+    for name, count in customer_counts.items():
+        customer_names.extend([name] * count)
     
     # Optimize the delivery route for these customers
     optimal_route = predictor.optimize_delivery_route(customer_names)
+    
+    # Enhance the response with address information for UI display, matching optimize_route
+    if 'route' in optimal_route:
+        areas = []
+        addresses = []
+        distances = []
+        coordinates = []
+        
+        # Extract customer info
+        for i, customer in enumerate(optimal_route['route']):
+            # Extract customer name without the parcel count
+            name = customer.split(' (')[0] if ' (' in customer else customer
+            
+            # Get area and address info
+            area = predictor.customer_areas.get(name, "Unknown")
+            address = predictor.customer_addresses.get(name, "Unknown address")
+            
+            # Get coordinates for this customer or location
+            if name == "Start Location (Postman)":
+                area = "Satellite"  # Postman location is in Satellite
+                address = predictor.default_location
+                coords = predictor.area_coordinates.get("Satellite", [23.0225, 72.5714])
+            else:
+                coords = predictor.get_customer_coordinates(name)
+            
+            areas.append(area)
+            addresses.append(address)
+            coordinates.append(coords)
+            
+            # Extract distances from route details if available
+            if 'details' in optimal_route and i < len(optimal_route['details']):
+                leg = optimal_route['details'][i]
+                distance = leg.get('distance', '').replace(' km', '')
+                distances.append(distance)
+        
+        # Add the areas, addresses, coordinates and distances to the response
+        optimal_route['areas'] = areas
+        optimal_route['addresses'] = addresses
+        optimal_route['coordinates'] = coordinates
+        optimal_route['distances'] = distances
     
     # Store the optimized route in session for chatbot context
     session['last_route_optimization'] = optimal_route
@@ -256,7 +350,8 @@ def schedule_for_today():
     return jsonify({
         'success': True,
         'message': f'Successfully scheduled {len(scheduled_orders)} orders for today',
-        'optimized_route': optimal_route
+        'optimized_route': optimal_route,
+        'customer_counts': customer_counts
     })
 
 if __name__ == '__main__':

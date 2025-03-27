@@ -39,6 +39,20 @@ class DeliveryPredictor:
             'Ishaan': 'Maninagar',
             'Kabir': 'Chandkheda'
         }
+        # Area coordinates (latitude, longitude)
+        self.area_coordinates = {
+            'Satellite': [23.0258, 72.5205],
+            'Bopal': [23.0369, 72.4650],
+            'Vastrapur': [23.0387, 72.5298],
+            'Paldi': [23.0103, 72.5577],
+            'Thaltej': [23.0553, 72.5048],
+            'Navrangpura': [23.0332, 72.5695],
+            'Bodakdev': [23.0453, 72.5107],
+            'Gota': [23.1005, 72.5148],
+            'Maninagar': [22.9973, 72.6013],
+            'Chandkheda': [23.1128, 72.5736],
+            'Start Location (Postman)': [23.0258, 72.5205]  # Same as Satellite
+        }
         # Default postman location
         self.default_location = "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India"
         # Google Maps API key
@@ -526,9 +540,23 @@ class DeliveryPredictor:
         return False
     
     def get_todays_orders(self):
-        """Get orders scheduled for today"""
-        current_day = datetime.now().strftime('%A')
-        return [order for order in self.pending_orders if order['delivery_day'] == current_day]
+        """Return orders scheduled for today"""
+        today = datetime.now().strftime('%A')
+        return [order for order in self.pending_orders if order['delivery_day'] == today]
+    
+    def get_customer_coordinates(self, customer_name):
+        """Get coordinates for a customer based on their area"""
+        if customer_name == "Start Location (Postman)":
+            return self.area_coordinates.get("Satellite", [23.0225, 72.5714])
+        
+        # Get the area for this customer
+        area = self.customer_areas.get(customer_name)
+        if not area:
+            # Return default coordinates if customer not found
+            return [23.0225, 72.5714]  # Default to Ahmedabad center
+        
+        # Return coordinates for this area
+        return self.area_coordinates.get(area, [23.0225, 72.5714])
 
 # Test the predictor
 if __name__ == "__main__":
