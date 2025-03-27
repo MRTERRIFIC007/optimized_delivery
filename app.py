@@ -27,6 +27,11 @@ def dict_concat(d1, d2):
     d.update(d2)
     return d
 
+# Add current datetime function to template context
+@app.context_processor
+def inject_now():
+    return {'now': datetime.now}
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -49,13 +54,10 @@ def index():
         if customer_name in grouped_orders:
             # Increment parcel count for existing customer
             grouped_orders[customer_name]['parcel_count'] += 1
-            # Add order ID to the list
-            grouped_orders[customer_name]['order_ids'].append(order['order_id'])
         else:
             # Copy the order and add parcel count
             grouped_order = order.copy()
             grouped_order['parcel_count'] = 1
-            grouped_order['order_ids'] = [order['order_id']]
             grouped_orders[customer_name] = grouped_order
     
     # Convert grouped orders dict to list
@@ -80,13 +82,33 @@ def index():
     # Convert to list for the template
     grouped_pending_list = list(grouped_pending_orders.values())
     
+    # Get real-time data
+    real_time_data = {
+        'weather': predictor.get_real_time_data('weather'),
+        'traffic': predictor.get_real_time_data('traffic'),
+        'festivals': predictor.get_real_time_data('festivals')
+    }
+    
+    # Create summary data for display
+    weather_summary = predictor._get_weather_summary(real_time_data['weather']) if hasattr(predictor, '_get_weather_summary') else "Weather data unavailable"
+    traffic_summary = predictor._get_traffic_summary(real_time_data['traffic']) if hasattr(predictor, '_get_traffic_summary') else "Traffic data unavailable"
+    festival_summary = predictor._get_festival_summary(real_time_data['festivals']) if hasattr(predictor, '_get_festival_summary') else "Festival data unavailable"
+    
+    real_time_summary = {
+        'weather': weather_summary,
+        'traffic': traffic_summary,
+        'festivals': festival_summary
+    }
+    
     return render_template('index.html', 
                           pending_orders=pending_orders,
                           current_day=current_day,
                           names=names,
                           todays_orders=todays_orders,
                           grouped_todays_orders=grouped_todays_orders,
-                          grouped_pending_orders=grouped_pending_list)
+                          grouped_pending_orders=grouped_pending_list,
+                          real_time_data=real_time_data,
+                          real_time_summary=real_time_summary)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -96,10 +118,45 @@ def predict():
     
     optimal_times = predictor.predict_optimal_times(name, day)
     
+    # Add real-time factors that influenced the prediction
+    customer_area = predictor.customer_areas.get(name)
+    real_time_factors = {}
+    
+    if customer_area:
+        # Get traffic data for this area
+        traffic_data = predictor.get_real_time_data('traffic', customer_area)
+        if traffic_data and 'congestion_level' in traffic_data:
+            real_time_factors['traffic'] = {
+                'congestion_level': traffic_data['congestion_level'],
+                'status': traffic_data['status']
+            }
+    
+    # Get weather data
+    weather_data = predictor.get_real_time_data('weather')
+    if weather_data:
+        real_time_factors['weather'] = {
+            'conditions': weather_data.get('conditions', 'Unknown'),
+            'temperature': weather_data.get('temperature', {}).get('current', 'N/A'),
+            'precipitation': weather_data.get('precipitation', {}).get('chance', 0)
+        }
+    
+    # Check if any festivals are affecting this area
+    festival_data = predictor.get_real_time_data('festivals')
+    if festival_data and festival_data.get('has_festival_today', False):
+        for festival in festival_data.get('festivals', []):
+            if festival.get('date') == datetime.now().strftime("%Y-%m-%d"):
+                if customer_area in festival.get('affected_areas', []):
+                    real_time_factors['festival'] = {
+                        'name': festival.get('name', 'Unknown event'),
+                        'impact': festival.get('traffic_impact', 'Low')
+                    }
+                    break
+    
     return jsonify({
         'name': name,
         'day': day,
-        'optimal_times': optimal_times
+        'optimal_times': optimal_times,
+        'real_time_factors': real_time_factors
     })
 
 @app.route('/add_order', methods=['POST'])
@@ -117,39 +174,13 @@ def add_order():
         'order_id': order_id
     })
 
-@app.route('/mark_delivered/<int:order_id>', methods=['GET', 'POST'])
+@app.route('/mark_delivered/<int:order_id>')
 def mark_delivered(order_id):
-    """Mark an order as delivered with OTP verification"""
-    # Check if OTP is required (based on whether the order is in the optimized route)
-    if request.method == 'POST':
-        # Get OTP from form
-        otp = request.form.get('otp')
-        success = request.form.get('success', 'true').lower() == 'true'
-        
-        # Verify OTP and mark as delivered
-        result = predictor.mark_delivered(order_id, success, otp)
-        
-        if result.get('success', False):
-            # Success - OTP verified
-            return redirect(url_for('index'))
-        else:
-            # Invalid OTP
-            return render_template('otp_verification.html', 
-                                order_id=order_id, 
-                                error_message=result.get('error', 'An error occurred'),
-                                pending_orders=predictor.get_pending_orders())
-    else:
-        # Check if order is in optimized route with OTP
-        if hasattr(predictor, 'order_otps') and order_id in predictor.order_otps:
-            # Show OTP verification form
-            return render_template('otp_verification.html', 
-                                order_id=order_id,
-                                pending_orders=predictor.get_pending_orders())
-        else:
-            # No OTP required, mark as delivered directly
-            success = request.args.get('success', 'true').lower() == 'true'
-            result = predictor.mark_delivered(order_id, success)
-            return redirect(url_for('index'))
+    """Mark an order as delivered"""
+    success = request.args.get('success', 'true').lower() == 'true'
+    result = predictor.mark_delivered(order_id, success)
+    
+    return redirect(url_for('index'))
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -167,6 +198,13 @@ def chat():
     # If we have an active route optimization, include it
     if 'last_route_optimization' in session:
         current_context['optimized_route'] = session['last_route_optimization']
+    
+    # Add real-time data to context
+    current_context['real_time_data'] = {
+        'weather': predictor.get_real_time_data('weather'),
+        'traffic': predictor.get_real_time_data('traffic'),
+        'festivals': predictor.get_real_time_data('festivals')
+    }
     
     # Process the query through the chatbot
     response = chatbot.process_query(message, current_context)
@@ -197,17 +235,42 @@ def optimize_route():
         for name, count in customer_counts.items():
             selected_customers.extend([name] * count)
     
-    # Get optimized route with OTPs
     optimal_route = predictor.optimize_delivery_route(selected_customers)
     
     # Store the optimized route in session for chatbot context
     session['last_route_optimization'] = optimal_route
     
-    # If there's an error, return it
-    if 'error' in optimal_route:
-        return jsonify(optimal_route)
-    
     return jsonify(optimal_route)
+
+@app.route('/real_time_data', methods=['GET'])
+def get_real_time_data():
+    """Get real-time data for traffic, weather, and festivals"""
+    data_type = request.args.get('type')
+    area = request.args.get('area')
+    
+    if data_type in ['traffic', 'weather', 'festivals']:
+        data = predictor.get_real_time_data(data_type, area)
+        return jsonify(data)
+    elif data_type == 'all':
+        # Get all types of real-time data
+        data = {
+            'weather': predictor.get_real_time_data('weather'),
+            'traffic': predictor.get_real_time_data('traffic'),
+            'festivals': predictor.get_real_time_data('festivals'),
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        # Add summaries
+        if hasattr(predictor, '_get_weather_summary'):
+            data['weather_summary'] = predictor._get_weather_summary(data['weather'])
+        if hasattr(predictor, '_get_traffic_summary'):
+            data['traffic_summary'] = predictor._get_traffic_summary(data['traffic'])
+        if hasattr(predictor, '_get_festival_summary'):
+            data['festival_summary'] = predictor._get_festival_summary(data['festivals'])
+            
+        return jsonify(data)
+    else:
+        return jsonify({'error': 'Invalid data type. Use "traffic", "weather", "festivals", or "all"'}), 400
 
 @app.route('/geocode', methods=['POST'])
 def geocode():

@@ -87,6 +87,7 @@ class DeliveryChatbot:
         2. Explain the current optimized route and why it's efficient
         3. Give details about customers and their preferences
         4. Suggest the best approach for each delivery based on historical data
+        5. Provide real-time traffic, weather, and festival information affecting deliveries
         
         Today is {current_date}.
         
@@ -102,6 +103,11 @@ class DeliveryChatbot:
         OPTIMAL DELIVERY TIMES:
         {optimal_times}
         
+        REAL-TIME CONDITIONS:
+        Weather: {weather_conditions}
+        Traffic: {traffic_conditions}
+        Events/Festivals: {festival_conditions}
+        
         When answering questions:
         - Be brief and focused on delivery-related information
         - Provide specific details when referring to addresses or delivery times
@@ -110,6 +116,7 @@ class DeliveryChatbot:
         - If asked about a specific customer, provide all relevant details we have
         - If you don't know something, say so clearly rather than making up information
         - Your responses should be conversational but professional
+        - Include relevant real-time data that impacts deliveries
         
         Remember, you are helping a postman who needs quick, accurate information while making deliveries.
         """
@@ -121,7 +128,7 @@ class DeliveryChatbot:
         try:
             customer_info = []
             for name, info in self.predictor.customer_areas.items():
-                address = self.predictor.customer_addresses.get(name, ["Unknown address"])[0]
+                address = self.predictor.customer_addresses.get(name, "Unknown address")
                 area = info
                 customer_info.append(f"- {name}: Area: {area}, Address: {address}")
             
@@ -132,7 +139,7 @@ class DeliveryChatbot:
         
         # Get today's deliveries
         try:
-            todays_orders = self.predictor.get_pending_orders()
+            todays_orders = self.predictor.get_todays_orders()
             if todays_orders:
                 deliveries_info = []
                 for order in todays_orders:
@@ -153,7 +160,19 @@ class DeliveryChatbot:
         if current_context and 'optimized_route' in current_context:
             try:
                 route = current_context['optimized_route']
-                route_info_str = f"Optimized route: {' → '.join(route['route'])}\nTotal distance: {route['total_distance']} km\nEstimated time: {route.get('estimated_time', 'Unknown')}"
+                route_info_str = f"Optimized route: {' → '.join(route['route'])}\nTotal distance: {route['total_distance']}"
+                
+                if 'total_duration' in route:
+                    route_info_str += f", Estimated time: {route['total_duration']}"
+                    
+                if 'weather_conditions' in route:
+                    route_info_str += f"\nWeather affecting route: {route['weather_conditions']}"
+                
+                if 'traffic_summary' in route:
+                    route_info_str += f"\nTraffic conditions: {route['traffic_summary']}"
+                
+                if 'festival_impact' in route:
+                    route_info_str += f"\nEvents impact: {route['festival_impact']}"
             except Exception as e:
                 logging.exception("Error processing route information")
                 route_info_str = "Error processing route information."
@@ -165,8 +184,8 @@ class DeliveryChatbot:
                 optimal_times = self.predictor.predict_optimal_times(name)
                 if optimal_times and len(optimal_times) > 0:
                     best_time = optimal_times[0]['time']
-                    failure_rate = self.predictor.get_failure_rate(name) if hasattr(self.predictor, 'get_failure_rate') else 0.2
-                    optimal_times_info.append(f"- {name}: Best time is around {best_time} (Failure rate: {failure_rate:.1%})")
+                    failure_rate = optimal_times[0]['failure_rate']
+                    optimal_times_info.append(f"- {name}: Best time is around {best_time} (Failure rate: {failure_rate}%)")
                 else:
                     optimal_times_info.append(f"- {name}: No optimal delivery time available")
             
@@ -175,13 +194,67 @@ class DeliveryChatbot:
             logging.exception("Error retrieving optimal delivery times")
             optimal_times_str = "Error retrieving optimal delivery times."
         
+        # Get real-time conditions
+        weather_conditions_str = "No weather data available."
+        traffic_conditions_str = "No traffic data available."
+        festival_conditions_str = "No information about events or festivals available."
+        
+        if current_context and 'real_time_data' in current_context:
+            real_time_data = current_context['real_time_data']
+            
+            # Weather conditions
+            if 'weather' in real_time_data and real_time_data['weather']:
+                weather_data = real_time_data['weather']
+                try:
+                    weather_conditions_str = self.predictor._get_weather_summary(weather_data)
+                except:
+                    conditions = weather_data.get('conditions', 'Unknown')
+                    temp = weather_data.get('temperature', {}).get('current', 'N/A')
+                    precip = weather_data.get('precipitation', {}).get('chance', 0)
+                    weather_conditions_str = f"{conditions}, {temp}°C, {precip}% precipitation chance"
+            
+            # Traffic conditions
+            if 'traffic' in real_time_data and real_time_data['traffic']:
+                traffic_data = real_time_data['traffic']
+                try:
+                    traffic_conditions_str = self.predictor._get_traffic_summary(traffic_data)
+                except:
+                    congested_areas = []
+                    for area, data in traffic_data.items():
+                        if isinstance(data, dict) and data.get('congestion_level', 0) >= 7:
+                            congested_areas.append(area)
+                    
+                    if congested_areas:
+                        traffic_conditions_str = f"Heavy traffic in {', '.join(congested_areas)}"
+                    else:
+                        traffic_conditions_str = "Normal traffic conditions across the city"
+            
+            # Festival/event conditions
+            if 'festivals' in real_time_data and real_time_data['festivals']:
+                festival_data = real_time_data['festivals']
+                try:
+                    festival_conditions_str = self.predictor._get_festival_summary(festival_data)
+                except:
+                    if festival_data.get('has_festival_today', False):
+                        festivals = festival_data.get('festivals', [])
+                        today_festivals = [f['name'] for f in festivals if f.get('date') == datetime.now().strftime("%Y-%m-%d")]
+                        if today_festivals:
+                            festival_conditions_str = f"Events today: {', '.join(today_festivals)}"
+                        else:
+                            festival_conditions_str = "No major events affecting deliveries today"
+                    else:
+                        festival_conditions_str = "No major events affecting deliveries today"
+        
         # Format the system prompt
         formatted_prompt = system_prompt.format(
             current_date=current_date,
             customer_info=customer_info_str,
             todays_deliveries=deliveries_info_str,
             route_info=route_info_str,
-            optimal_times=optimal_times_str
+            optimal_times=optimal_times_str,
+            weather_conditions=weather_conditions_str,
+            traffic_conditions=traffic_conditions_str,
+            festival_conditions=festival_conditions_str
         )
         
         return formatted_prompt

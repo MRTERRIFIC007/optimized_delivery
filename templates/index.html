@@ -99,6 +99,258 @@
     <div class="container">
       <h1 class="mb-4">Delivery Prediction System</h1>
 
+      <!-- Real-time Conditions Dashboard -->
+      <div class="card mb-4">
+        <div
+          class="card-header bg-dark text-white d-flex justify-content-between"
+        >
+          <h4><i class="bi bi-clock-history me-2"></i>Real-time Conditions</h4>
+          <button id="refreshRealTimeData" class="btn btn-sm btn-outline-light">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <!-- Weather Information -->
+            <div class="col-md-4">
+              <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                  <h5><i class="bi bi-cloud me-2"></i>Weather</h5>
+                </div>
+                <div class="card-body">
+                  <div id="weatherData">
+                    <p class="mb-1">{{ real_time_summary.weather }}</p>
+                    {% if real_time_data.weather %}
+                    <div class="d-flex align-items-center mt-2">
+                      <div class="me-3">
+                        {% if real_time_data.weather.temperature and
+                        real_time_data.weather.temperature.current is defined %}
+                        <h3>
+                          {{ real_time_data.weather.temperature.current }}°{{
+                          real_time_data.weather.temperature.units|default('C')
+                          }}
+                        </h3>
+                        {% else %}
+                        <h3>
+                          {{ real_time_data.weather.get('temperature',
+                          {}).get('current', 'N/A') }}°{{
+                          real_time_data.weather.get('temperature',
+                          {}).get('units', 'C') }}
+                        </h3>
+                        {% endif %}
+                      </div>
+                      <div>
+                        <p class="mb-0">
+                          <strong>
+                            {{
+                            real_time_data.weather.conditions|default('Unknown')
+                            }}
+                          </strong>
+                        </p>
+                        <p class="mb-0 small">
+                          <i class="bi bi-droplet-half text-primary"></i>
+                          Humidity: {{
+                          real_time_data.weather.humidity|default('N/A') }}%
+                        </p>
+                        {% if real_time_data.weather.precipitation and
+                        real_time_data.weather.precipitation.chance is defined
+                        and real_time_data.weather.precipitation.chance > 0 %}
+                        <p class="mb-0 small">
+                          <i class="bi bi-cloud-rain text-primary"></i> {{
+                          real_time_data.weather.precipitation.chance }}% chance
+                          of {{ real_time_data.weather.precipitation.type }}
+                        </p>
+                        {% elif real_time_data.weather.get('precipitation',
+                        {}).get('chance', 0) > 0 %}
+                        <p class="mb-0 small">
+                          <i class="bi bi-cloud-rain text-primary"></i> {{
+                          real_time_data.weather.get('precipitation',
+                          {}).get('chance', 0) }}% chance of {{
+                          real_time_data.weather.get('precipitation',
+                          {}).get('type', 'precipitation') }}
+                        </p>
+                        {% endif %}
+                      </div>
+                    </div>
+                    {% if real_time_data.weather.warnings and
+                    real_time_data.weather.warnings|length > 0 %}
+                    <div class="alert alert-warning mt-2 mb-0 py-2">
+                      <p class="mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i
+                        ><strong>Warning:</strong> {{
+                        real_time_data.weather.warnings[0] }}
+                      </p>
+                      {% if real_time_data.weather.warnings|length > 1 %} {% set
+                      additional_warnings =
+                      real_time_data.weather.warnings|length - 1 %} {% if
+                      additional_warnings == 1 %}
+                      <p class="mb-0 small mt-1">
+                        <i class="bi bi-info-circle me-1"></i> {{
+                        real_time_data.weather.warnings[1] }}
+                      </p>
+                      {% else %}
+                      <p class="mb-0 small mt-1">
+                        <i class="bi bi-info-circle me-1"></i> {{
+                        additional_warnings }} more warning{% if
+                        additional_warnings > 1 %}s{% endif %}
+                      </p>
+                      {% endif %} {% endif %}
+                    </div>
+                    {% endif %} {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Traffic Information -->
+            <div class="col-md-4">
+              <div class="card h-100">
+                <div class="card-header bg-danger text-white">
+                  <h5>
+                    <i class="bi bi-sign-intersection-fill me-2"></i>Traffic
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <div id="trafficData">
+                    <p class="mb-2">{{ real_time_summary.traffic }}</p>
+                    {% if real_time_data.traffic %}
+                    <div class="mt-3">
+                      <p class="mb-1">
+                        <strong>Congestion by Area:</strong>
+                        <small class="text-muted"
+                          >(Scale: 1-10, where 10 is severe)</small
+                        >
+                      </p>
+                      <div class="row">
+                        {% set area_count = 0 %} {% for area, data in
+                        real_time_data.traffic.items() %} {% if data is mapping
+                        and area_count < 6 %}
+                        <!-- Show only top 6 areas -->
+                        {% set area_count = area_count + 1 %}
+                        <div class="col-6 mb-2">
+                          <div class="d-flex align-items-center">
+                            <div class="me-2">
+                              {% set congestion =
+                              data.congestion_level|default(5) %} {% if
+                              congestion <= 3 %}
+                              <span class="badge bg-success"
+                                >{{ congestion }}/10</span
+                              >
+                              {% elif congestion <= 6 %}
+                              <span class="badge bg-warning"
+                                >{{ congestion }}/10</span
+                              >
+                              {% else %}
+                              <span class="badge bg-danger"
+                                >{{ congestion }}/10</span
+                              >
+                              {% endif %}
+                            </div>
+                            <div class="small">{{ area }}</div>
+                          </div>
+                        </div>
+                        {% endif %} {% endfor %}
+                      </div>
+                      {% if real_time_data.traffic.overall_city_congestion is
+                      defined %}
+                      <div class="alert alert-secondary mt-2 mb-0 py-2">
+                        <p class="mb-0 small">
+                          <strong>Overall City Status:</strong>
+                          <span
+                            class="badge {% if real_time_data.traffic.overall_city_congestion <= 3 %} bg-success {% elif real_time_data.traffic.overall_city_congestion <= 6 %} bg-warning {% else %} bg-danger {% endif %}"
+                          >
+                            {{
+                            real_time_data.traffic.overall_city_congestion|default(5)
+                            }}/10
+                          </span>
+                          {% if real_time_data.traffic.status is defined %} - {{
+                          real_time_data.traffic.status }} {% endif %}
+                        </p>
+                      </div>
+                      {% endif %}
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Festival/Events Information -->
+            <div class="col-md-4">
+              <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                  <h5>
+                    <i class="bi bi-calendar-event me-2"></i>Events & Festivals
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <div id="festivalData">
+                    <p class="mb-2">{{ real_time_summary.festivals }}</p>
+                    {% if real_time_data.festivals %} {% set has_festival =
+                    real_time_data.festivals.has_festival_today if
+                    real_time_data.festivals.has_festival_today is defined else
+                    false %} {% set festival_list =
+                    real_time_data.festivals.festivals if
+                    real_time_data.festivals.festivals is defined else [] %} {%
+                    set today_str = now().strftime('%Y-%m-%d') %} {% if
+                    has_festival and festival_list|length > 0 %}
+                    <div class="mt-3">
+                      {% for festival in festival_list %} {% if festival.date is
+                      defined and festival.date == today_str %}
+                      <div class="alert alert-success py-2 px-3 mb-2">
+                        <p class="mb-1">
+                          <strong>{{ festival.name|default('Event') }}</strong>
+                        </p>
+                        <p class="mb-1 small">
+                          <i class="bi bi-geo-alt me-1"></i> {{
+                          festival.location|default('Various locations') }}
+                        </p>
+                        <p class="mb-1 small">
+                          <i class="bi bi-clock me-1"></i> {{
+                          festival.time|default('All day') }}
+                        </p>
+                        <p class="mb-0 small">
+                          {% set impact = festival.traffic_impact|default('Low')
+                          %}
+                          <span
+                            class="badge bg-{{ 'success' if impact == 'Low' else 'warning' if impact == 'Moderate' else 'danger' }}"
+                          >
+                            {{ impact }} impact
+                          </span>
+                          {% if festival.affected_areas is defined and
+                          festival.affected_areas|length > 0 %}
+                          <span class="small ms-2">
+                            <i class="bi bi-geo-fill me-1"></i>Affecting: {{
+                            festival.affected_areas|join(', ') }}
+                          </span>
+                          {% endif %}
+                        </p>
+                      </div>
+                      {% endif %} {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="mt-3">
+                      <div class="alert alert-light py-2 px-3 mb-0">
+                        <div class="text-center py-2">
+                          <i
+                            class="bi bi-calendar-x text-muted"
+                            style="font-size: 2rem"
+                          ></i>
+                          <p class="mb-0 mt-2">
+                            No festivals or events scheduled for today
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %} {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="row">
         <!-- Left Column -->
         <div class="col-md-6">
@@ -259,53 +511,48 @@
 
         <!-- Right Column -->
         <div class="col-md-6">
-          <!-- Route Optimization -->
-          <div class="card mt-4">
-            <div class="card-header bg-dark text-white">
+          <!-- Route Optimization Section -->
+          <div class="card mb-4">
+            <div class="card-header bg-info text-white">
               <h4>Route Optimization</h4>
             </div>
             <div class="card-body">
-              <h5>
-                Plan the most efficient delivery route for today's orders.
-              </h5>
-              <form id="routeForm">
+              <p>Plan the most efficient delivery route for today's orders.</p>
+
+              <form id="routeOptimizationForm">
                 <div class="mb-3">
                   <label class="form-label"
                     >Select Customers for Today's Delivery Route:</label
                   >
-                  <div class="d-flex mb-2">
-                    <button
-                      type="button"
-                      id="selectAllBtn"
-                      class="btn btn-sm btn-outline-primary me-2"
-                    >
-                      <i class="bi bi-check-all"></i> Select All Today's Orders
-                    </button>
-                    <button
-                      type="button"
-                      id="clearSelectionBtn"
-                      class="btn btn-sm btn-outline-secondary"
-                    >
-                      <i class="bi bi-x-lg"></i> Clear Selection
-                    </button>
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="selectAllCustomers"
+                    />
+                    <label class="form-check-label" for="selectAllCustomers">
+                      Select All Today's Orders
+                    </label>
                   </div>
-                  <div id="customerSelection">
+
+                  <div id="todaysOrdersList" class="mt-2">
                     {% for order in grouped_todays_orders %}
                     <div class="form-check">
                       <input
                         class="form-check-input customer-checkbox"
                         type="checkbox"
-                        value="{{ order.name }}"
-                        id="check_{{ order.name }}"
                         name="selected_customers[]"
+                        value="{{ order.name }}"
+                        id="customer-{{ order.order_id }}"
+                        data-count="{{ order.parcel_count }}"
                       />
                       <label
                         class="form-check-label"
-                        for="check_{{ order.name }}"
+                        for="customer-{{ order.order_id }}"
                       >
-                        <span class="fw-bold">{{ order.name }}</span> ({{
-                        order.area }}) {% if order.parcel_count > 1 %}
-                        <span class="badge bg-info text-dark"
+                        {{ order.name }} ({{ order.area }}) {% if
+                        order.parcel_count > 1 %}
+                        <span class="badge bg-primary"
                           >{{ order.parcel_count }} parcels</span
                         >
                         {% endif %}
@@ -315,59 +562,38 @@
                     {% endfor %}
                   </div>
                 </div>
-                <button type="submit" class="btn btn-dark">
-                  <i class="bi bi-shuffle"></i> Optimize Route
+
+                <button type="submit" class="btn btn-info">
+                  Optimize Route
                 </button>
               </form>
 
-              <div id="routeResults" class="mt-4" style="display: none">
-                <h5>Optimized Route:</h5>
-                <div id="routeDetails"></div>
-                <div id="otpInfo" class="mt-3">
-                  <div class="alert alert-success">
-                    <i class="bi bi-envelope-check-fill me-2"></i>
-                    <strong>OTP Codes Sent to Customers</strong>
-                    <p class="mb-0 mt-2">
-                      6-digit verification codes have been sent to all customers
-                      in this route. Customers will provide these codes to
-                      verify delivery.
-                    </p>
-                    <hr />
-                    <div class="text-muted small">
-                      <i class="bi bi-info-circle me-1"></i> For demo purposes,
-                      OTPs are displayed in:
-                      <ul class="mb-0 mt-1">
-                        <li>Terminal console output</li>
-                        <li>
-                          <a
-                            href="/admin/otp"
-                            target="_blank"
-                            class="text-decoration-none"
-                            >Admin OTP Dashboard</a
-                          >
-                          (opens in new tab)
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                  <div id="otpDetails" class="table-responsive">
-                    <table class="table table-bordered table-striped">
-                      <thead>
-                        <tr>
-                          <th>Customer</th>
-                          <th>Order ID</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody id="otpTableBody">
-                        <!-- OTP notification status will be inserted here -->
-                      </tbody>
-                    </table>
-                  </div>
+              <div
+                id="routeLoadingIndicator"
+                class="text-center my-4"
+                style="display: none"
+              >
+                <div class="spinner-border text-info" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Calculating optimal delivery route...</p>
+              </div>
+
+              <div id="routeResult" class="mt-4" style="display: none">
+                <h5>Optimal Delivery Route:</h5>
+                <div class="alert alert-info">
+                  <span id="routeSummary"></span>
+                  <div id="totalDistance" class="mt-2"></div>
                 </div>
 
-                <div class="mt-3">
-                  <div id="routeMap" class="route-map"></div>
+                <div id="routeDetails"></div>
+
+                <div id="routeMap" class="route-map"></div>
+
+                <div class="mt-3 text-end">
+                  <button id="resetRouteBtn" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i> Plan New Route
+                  </button>
                 </div>
               </div>
             </div>
@@ -581,26 +807,133 @@
             url: "/predict",
             type: "POST",
             data: $(this).serialize(),
-            success: function (response) {
-              $("#customerName").text(response.name);
-              $("#deliveryDay").text(response.day);
+            success: function (data) {
+              // Display optimal times
+              $("#customerName").text(data.name);
+              $("#deliveryDay").text(data.day);
 
-              let timesHtml = "";
-              response.optimal_times.forEach(function (prediction) {
-                if (typeof prediction === "object") {
-                  timesHtml += `
-                    <div class="mb-2">
-                      <span class="badge bg-primary time-badge">${prediction.time}</span>
-                      <span class="badge bg-danger failure-rate">${prediction.failure_rate}% Failure Rate</span>
+              const optimalTimesContainer = $("#optimalTimes");
+              optimalTimesContainer.empty();
+
+              if (data.optimal_times && data.optimal_times.length > 0) {
+                // Create a list of optimal times
+                const optimalTimesList = $("<div class='list-group'></div>");
+
+                data.optimal_times.forEach(function (prediction, index) {
+                  // Create different badge colors based on failure rate
+                  let badgeClass = "bg-success";
+                  if (prediction.failure_rate > 5) {
+                    badgeClass = "bg-warning";
+                  }
+                  if (prediction.failure_rate > 8) {
+                    badgeClass = "bg-danger";
+                  }
+
+                  // Create a time item
+                  const timeItem = $(`
+                    <div class="list-group-item list-group-item-action">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="time-badge badge ${badgeClass}">
+                          ${prediction.time}
+                        </span>
+                        <small class="text-muted">
+                          ${prediction.failure_rate}% failure risk
+                        </small>
+                      </div>
                     </div>
-                  `;
-                } else {
-                  timesHtml += `<span class="badge bg-primary time-badge">${prediction}</span>`;
-                }
-              });
+                  `);
 
-              $("#optimalTimes").html(timesHtml);
+                  optimalTimesList.append(timeItem);
+                });
+
+                optimalTimesContainer.append(optimalTimesList);
+
+                // Add real-time factors that influenced the prediction if available
+                if (
+                  data.real_time_factors &&
+                  Object.keys(data.real_time_factors).length > 0
+                ) {
+                  const realTimeFactors =
+                    $(`<div class="mt-3 p-2 bg-light rounded">
+                    <h6><i class="bi bi-lightning-fill me-1 text-warning"></i>Real-time factors affecting this prediction:</h6>
+                    <ul class="list-unstyled small m-0"></ul>
+                  </div>`);
+
+                  const factorsList = realTimeFactors.find("ul");
+
+                  if (data.real_time_factors.traffic) {
+                    const traffic = data.real_time_factors.traffic;
+                    let icon = "bi-sign-intersection-fill";
+                    let color = "text-success";
+
+                    if (
+                      traffic.congestion_level > 3 &&
+                      traffic.congestion_level <= 6
+                    ) {
+                      color = "text-warning";
+                    } else if (traffic.congestion_level > 6) {
+                      color = "text-danger";
+                    }
+
+                    factorsList.append(
+                      `<li><i class="bi ${icon} ${color} me-1"></i>Traffic: Congestion level ${traffic.congestion_level}/10 - ${traffic.status}</li>`
+                    );
+                  }
+
+                  if (data.real_time_factors.weather) {
+                    const weather = data.real_time_factors.weather;
+                    let icon = "bi-cloud";
+                    let color = "text-primary";
+
+                    if (
+                      weather.conditions.toLowerCase().includes("rain") ||
+                      weather.precipitation > 50
+                    ) {
+                      icon = "bi-cloud-rain-fill";
+                      color = "text-primary";
+                    } else if (weather.temperature > 35) {
+                      icon = "bi-thermometer-high";
+                      color = "text-danger";
+                    }
+
+                    factorsList.append(
+                      `<li><i class="bi ${icon} ${color} me-1"></i>Weather: ${weather.conditions}, ${weather.temperature}°C, ${weather.precipitation}% precipitation chance</li>`
+                    );
+                  }
+
+                  if (data.real_time_factors.festival) {
+                    const festival = data.real_time_factors.festival;
+                    let icon = "bi-calendar-event";
+                    let color = "text-success";
+
+                    if (festival.impact === "Moderate") {
+                      color = "text-warning";
+                    } else if (
+                      festival.impact === "High" ||
+                      festival.impact === "Severe"
+                    ) {
+                      color = "text-danger";
+                    }
+
+                    factorsList.append(
+                      `<li><i class="bi ${icon} ${color} me-1"></i>Event: ${festival.name} (${festival.impact} impact)</li>`
+                    );
+                  }
+
+                  optimalTimesContainer.append(realTimeFactors);
+                }
+              } else {
+                // No optimal times available
+                optimalTimesContainer.html(
+                  "<div class='alert alert-warning'>No optimal delivery times found for this customer.</div>"
+                );
+              }
+
+              // Show the result
               $("#predictionResult").show();
+            },
+            error: function (xhr, status, error) {
+              alert("Error predicting optimal times: " + error);
             },
           });
         });
@@ -628,126 +961,153 @@
         });
 
         // Route optimization form submission
-        $("#routeForm").submit(function (e) {
+        $("#routeOptimizationForm").submit(function (e) {
           e.preventDefault();
 
-          // Check if at least one customer is selected
-          if ($(".customer-checkbox:checked").length === 0) {
-            alert("Please select at least one customer for route optimization");
-            return;
-          }
+          // Get selected customers with counts
+          const selectedCustomers = [];
+          $(".customer-checkbox:checked").each(function () {
+            const customerName = $(this).val();
+            const count = parseInt($(this).data("count") || 1);
+
+            // Add the customer to the list based on the parcel count
+            for (let i = 0; i < count; i++) {
+              selectedCustomers.push(customerName);
+            }
+          });
 
           // Show loading indicator
-          const btnText = $("button[type='submit']", this).html();
-          $("button[type='submit']", this).html(
-            '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Optimizing...'
-          );
-          $("button[type='submit']", this).prop("disabled", true);
+          $("#routeLoadingIndicator").show();
+          $("#routeResult").hide();
 
-          // Get form data
-          const formData = $(this).serialize();
+          // Build the form data
+          const formData = new FormData();
+          selectedCustomers.forEach((name) => {
+            formData.append("selected_customers[]", name);
+          });
 
-          // Send AJAX request
           $.ajax({
             url: "/optimize_route",
             type: "POST",
             data: formData,
+            processData: false,
+            contentType: false,
             success: function (response) {
               // Hide loading indicator
-              $("button[type='submit']", "#routeForm").html(btnText);
-              $("button[type='submit']", "#routeForm").prop("disabled", false);
+              $("#routeLoadingIndicator").hide();
 
-              // Display route results
-              $("#routeResults").show();
+              // Display route summary
+              $("#routeSummary").html(
+                `Optimal delivery order: <strong>${response.route.join(
+                  " → "
+                )}</strong>`
+              );
 
-              // If there's an error, show it
-              if (response.error) {
-                $("#routeDetails").html(`
-                  <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i> ${response.error}
-                  </div>
-                `);
-                $("#otpInfo").hide();
-                return;
+              // Display distance and time
+              let routeSummaryHtml = `Total distance: <strong>${response.total_distance}</strong>`;
+              if (response.total_duration) {
+                routeSummaryHtml += `, Estimated time: <strong>${response.total_duration}</strong>`;
+              }
+              $("#totalDistance").html(routeSummaryHtml);
+
+              // Display real-time conditions affecting the route
+              let realTimeInfoHtml = "";
+
+              if (response.weather_conditions) {
+                realTimeInfoHtml += `
+                  <div class="alert alert-info py-2 mt-2">
+                    <p class="mb-1"><i class="bi bi-cloud me-2"></i><strong>Weather:</strong> ${response.weather_conditions}</p>
+                  </div>`;
               }
 
-              // Build the route details HTML
-              let routeDetailsHtml = `
-                <div class="alert alert-success">
-                  <i class="bi bi-check-circle-fill me-2"></i> <strong>Optimized Route Created!</strong><br>
-                  Total Distance: ${response.total_distance} km<br>
-                  Estimated Time: ${response.total_duration} minutes
-                </div>
-                
-                <div class="route-segments mb-3">
-                  <h6 class="mb-2">Delivery Sequence:</h6>
-              `;
+              if (response.traffic_summary) {
+                realTimeInfoHtml += `
+                  <div class="alert alert-warning py-2">
+                    <p class="mb-1"><i class="bi bi-sign-intersection-fill me-2"></i><strong>Traffic:</strong> ${response.traffic_summary}</p>
+                  </div>`;
+              }
 
-              // Add the route segments
-              for (let i = 0; i < response.route.length; i++) {
+              if (
+                response.festival_impact &&
+                response.festival_impact !==
+                  "No festivals or events affecting deliveries today"
+              ) {
+                realTimeInfoHtml += `
+                  <div class="alert alert-success py-2">
+                    <p class="mb-1"><i class="bi bi-calendar-event me-2"></i><strong>Events:</strong> ${response.festival_impact}</p>
+                  </div>`;
+              }
+
+              if (realTimeInfoHtml) {
+                $("#totalDistance").after(`
+                  <div id="realTimeFactors" class="mt-2">
+                    <h6>Real-time conditions affecting this route:</h6>
+                    ${realTimeInfoHtml}
+                  </div>
+                `);
+              }
+
+              // Display detailed route
+              let routeDetailsHtml = "";
+              response.details.forEach(function (leg, index) {
+                // Determine traffic status badge color
+                let trafficBadgeClass = "bg-success";
+                if (leg.traffic_conditions) {
+                  if (
+                    leg.traffic_conditions.includes("Heavy") ||
+                    leg.traffic_conditions.includes("Severe")
+                  ) {
+                    trafficBadgeClass = "bg-danger";
+                  } else if (
+                    leg.traffic_conditions.includes("Moderate") ||
+                    leg.traffic_conditions.includes("Wet Roads") ||
+                    leg.traffic_conditions.includes("Festival")
+                  ) {
+                    trafficBadgeClass = "bg-warning";
+                  }
+                }
+
                 routeDetailsHtml += `
                   <div class="route-segment">
-                    <div class="d-flex align-items-center">
-                      <div class="route-number me-3">
-                        <span class="badge bg-dark rounded-circle p-2">${
-                          i + 1
-                        }</span>
-                      </div>
-                      <div>
-                        <strong>${response.route[i]}</strong>
-                        <div class="text-muted small">
-                          ${
-                            response.legs && response.legs[i]
-                              ? response.legs[i].to_address
-                              : ""
-                          }
-                        </div>
-                      </div>
+                    <div class="fw-bold">Leg ${index + 1}: ${leg.from} → ${
+                  leg.to
+                }</div>
+                    <div class="mt-1">
+                      <span class="badge bg-secondary me-2">Distance: ${
+                        leg.distance
+                      }</span>
+                      <span class="badge bg-secondary">Duration: ${
+                        leg.duration
+                      }</span>
+                      ${
+                        leg.traffic_conditions
+                          ? `<span class="badge ${trafficBadgeClass} ms-2">${leg.traffic_conditions}</span>`
+                          : ""
+                      }
+                    </div>
+                    <div class="customer-address mt-2">
+                      <div><small>From: ${leg.from_address}</small></div>
+                      <div><small>To: ${leg.to_address}</small></div>
                     </div>
                   </div>
                 `;
-              }
-
-              routeDetailsHtml += `</div>`;
+              });
 
               $("#routeDetails").html(routeDetailsHtml);
 
-              // Display OTP information
-              if (response.order_details && response.order_details.length > 0) {
-                $("#otpInfo").show();
-                let otpTableHtml = "";
-
-                for (const order of response.order_details) {
-                  otpTableHtml += `
-                    <tr>
-                      <td>${order.name}</td>
-                      <td>${order.order_id}</td>
-                      <td><span class="badge bg-success"><i class="bi bi-check-circle me-1"></i> OTP Sent</span></td>
-                    </tr>
-                  `;
-                }
-
-                $("#otpTableBody").html(otpTableHtml);
-              } else {
-                $("#otpInfo").hide();
-              }
-
-              // Initialize route map
+              // Initialize route map using Leaflet
               initRouteMap(response);
-            },
-            error: function (xhr, status, error) {
-              // Hide loading indicator
-              $("button[type='submit']", "#routeForm").html(btnText);
-              $("button[type='submit']", "#routeForm").prop("disabled", false);
 
-              // Show error
-              $("#routeResults").show();
-              $("#routeDetails").html(`
-                <div class="alert alert-danger">
-                  <i class="bi bi-exclamation-triangle-fill me-2"></i> Error creating route: ${error}
-                </div>
-              `);
-              $("#otpInfo").hide();
+              // Show the result section
+              $("#routeResult").show();
+            },
+            error: function (error) {
+              // Hide loading indicator and show error
+              $("#routeLoadingIndicator").hide();
+              alert(
+                "An error occurred while optimizing the route. Please try again."
+              );
+              console.error("Route optimization error:", error);
             },
           });
         });
@@ -1721,9 +2081,103 @@
                             " → "
                           )}</strong>`
                         );
-                        $("#totalDistance").html(
-                          `Total distance: <strong>${response.total_distance}</strong>`
-                        );
+
+                        // Display distance and time
+                        let routeSummaryHtml = `Total distance: <strong>${response.total_distance}</strong>`;
+                        if (response.total_duration) {
+                          routeSummaryHtml += `, Estimated time: <strong>${response.total_duration}</strong>`;
+                        }
+                        $("#totalDistance").html(routeSummaryHtml);
+
+                        // Display real-time conditions affecting the route
+                        let realTimeInfoHtml = "";
+
+                        if (response.weather_conditions) {
+                          realTimeInfoHtml += `
+                            <div class="alert alert-info py-2 mt-2">
+                              <p class="mb-1"><i class="bi bi-cloud me-2"></i><strong>Weather:</strong> ${response.weather_conditions}</p>
+                            </div>`;
+                        }
+
+                        if (response.traffic_summary) {
+                          realTimeInfoHtml += `
+                            <div class="alert alert-warning py-2">
+                              <p class="mb-1"><i class="bi bi-sign-intersection-fill me-2"></i><strong>Traffic:</strong> ${response.traffic_summary}</p>
+                            </div>`;
+                        }
+
+                        if (
+                          response.festival_impact &&
+                          response.festival_impact !==
+                            "No festivals or events affecting deliveries today"
+                        ) {
+                          realTimeInfoHtml += `
+                            <div class="alert alert-success py-2">
+                              <p class="mb-1"><i class="bi bi-calendar-event me-2"></i><strong>Events:</strong> ${response.festival_impact}</p>
+                            </div>`;
+                        }
+
+                        if (realTimeInfoHtml) {
+                          $("#totalDistance").after(`
+                            <div id="realTimeFactors" class="mt-2">
+                              <h6>Real-time conditions affecting this route:</h6>
+                              ${realTimeInfoHtml}
+                            </div>
+                          `);
+                        }
+
+                        // Display detailed route
+                        let routeDetailsHtml = "";
+                        response.details.forEach(function (leg, index) {
+                          // Determine traffic status badge color
+                          let trafficBadgeClass = "bg-success";
+                          if (leg.traffic_conditions) {
+                            if (
+                              leg.traffic_conditions.includes("Heavy") ||
+                              leg.traffic_conditions.includes("Severe")
+                            ) {
+                              trafficBadgeClass = "bg-danger";
+                            } else if (
+                              leg.traffic_conditions.includes("Moderate") ||
+                              leg.traffic_conditions.includes("Wet Roads") ||
+                              leg.traffic_conditions.includes("Festival")
+                            ) {
+                              trafficBadgeClass = "bg-warning";
+                            }
+                          }
+
+                          routeDetailsHtml += `
+                            <div class="route-segment">
+                              <div class="fw-bold">Leg ${index + 1}: ${
+                            leg.from
+                          } → ${leg.to}</div>
+                              <div class="mt-1">
+                                <span class="badge bg-secondary me-2">Distance: ${
+                                  leg.distance
+                                }</span>
+                                <span class="badge bg-secondary">Duration: ${
+                                  leg.duration
+                                }</span>
+                                ${
+                                  leg.traffic_conditions
+                                    ? `<span class="badge ${trafficBadgeClass} ms-2">${leg.traffic_conditions}</span>`
+                                    : ""
+                                }
+                              </div>
+                              <div class="customer-address mt-2">
+                                <div><small>From: ${
+                                  leg.from_address
+                                }</small></div>
+                                <div><small>To: ${leg.to_address}</small></div>
+                              </div>
+                            </div>
+                          `;
+                        });
+
+                        $("#routeDetails").html(routeDetailsHtml);
+
+                        // Initialize route map using Leaflet
+                        initRouteMap(response);
 
                         // Show the result section
                         $("#routeResult").show();
@@ -1855,6 +2309,302 @@
         const question = $(this).text();
         $("#chatInput").val(question);
         $("#chatForm").submit();
+      });
+
+      // Handle real-time data refresh
+      $("#refreshRealTimeData").click(function () {
+        // Show spinner in button
+        const btn = $(this);
+        const originalContent = btn.html();
+        btn.html(
+          '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Refreshing...'
+        );
+        btn.prop("disabled", true);
+
+        // Fetch fresh data
+        $.ajax({
+          url: "/real_time_data?type=all",
+          type: "GET",
+          success: function (data) {
+            // Update weather card
+            if (data.weather) {
+              let weatherHtml = `<p class="mb-1">${
+                data.weather_summary || ""
+              }</p>`;
+
+              weatherHtml += `
+                <div class="d-flex align-items-center mt-2">
+                  <div class="me-3">`;
+
+              // Handle different possible temperature structures
+              let temp = "N/A";
+              let units = "C";
+              if (data.weather.temperature) {
+                if (
+                  typeof data.weather.temperature === "object" &&
+                  data.weather.temperature.current !== undefined
+                ) {
+                  temp = data.weather.temperature.current;
+                  units = data.weather.temperature.units || "C";
+                } else if (typeof data.weather.temperature === "number") {
+                  temp = data.weather.temperature;
+                }
+              }
+
+              weatherHtml += `<h3>${temp}°${units}</h3></div><div>`;
+
+              // Handle conditions
+              let conditions = data.weather.conditions || "Unknown";
+              let humidity = data.weather.humidity || "N/A";
+
+              weatherHtml += `
+                <p class="mb-0"><strong>${conditions}</strong></p>
+                <p class="mb-0 small"><i class="bi bi-droplet-half text-primary"></i> Humidity: ${humidity}%</p>`;
+
+              // Handle precipitation data
+              let precipChance = 0;
+              let precipType = "precipitation";
+
+              if (data.weather.precipitation) {
+                if (typeof data.weather.precipitation === "object") {
+                  precipChance = data.weather.precipitation.chance || 0;
+                  precipType =
+                    data.weather.precipitation.type || "precipitation";
+                } else if (typeof data.weather.precipitation === "number") {
+                  precipChance = data.weather.precipitation;
+                }
+              }
+
+              if (precipChance > 0) {
+                weatherHtml += `<p class="mb-0 small"><i class="bi bi-cloud-rain text-primary"></i> ${precipChance}% chance of ${precipType}</p>`;
+              }
+
+              weatherHtml += `</div></div>`;
+
+              // Handle warnings
+              if (
+                data.weather.warnings &&
+                Array.isArray(data.weather.warnings) &&
+                data.weather.warnings.length > 0
+              ) {
+                weatherHtml += `
+                  <div class="alert alert-warning mt-2 mb-0 py-2">
+                    <p class="mb-0">
+                      <i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Warning:</strong> ${data.weather.warnings[0]}
+                    </p>`;
+
+                // Add indication if there are more warnings
+                if (data.weather.warnings.length > 1) {
+                  const additionalWarnings = data.weather.warnings.length - 1;
+                  // Explicitly show next warning if there's only one more
+                  if (additionalWarnings === 1) {
+                    weatherHtml += `
+                      <p class="mb-0 small mt-1">
+                        <i class="bi bi-info-circle me-1"></i> ${data.weather.warnings[1]}
+                      </p>`;
+                  } else {
+                    weatherHtml += `
+                      <p class="mb-0 small mt-1">
+                        <i class="bi bi-info-circle me-1"></i> ${additionalWarnings} more warning${
+                      additionalWarnings > 1 ? "s" : ""
+                    }
+                      </p>`;
+                  }
+                }
+
+                weatherHtml += `</div>`;
+              }
+
+              $("#weatherData").html(weatherHtml);
+            }
+
+            // Update traffic card
+            if (data.traffic) {
+              let trafficHtml = `<p class="mb-2">${
+                data.traffic_summary || ""
+              }</p>`;
+
+              trafficHtml += `
+                <div class="mt-3">
+                  <p class="mb-1"><strong>Congestion by Area:</strong> <small class="text-muted">(Scale: 1-10, where 10 is severe)</small></p>
+                  <div class="row">`;
+
+              let areaCount = 0;
+
+              // Check if traffic data is an object with area keys
+              if (typeof data.traffic === "object" && data.traffic !== null) {
+                for (const [area, areaData] of Object.entries(data.traffic)) {
+                  // Skip special keys that aren't areas
+                  if (area === "overall_city_congestion" || area === "status")
+                    continue;
+
+                  // Make sure areaData is an object and increment count only for valid items
+                  if (typeof areaData === "object" && areaData !== null) {
+                    if (areaCount >= 6) break; // Show only top 6 areas
+
+                    // Get congestion level with fallback to 5 (medium)
+                    const congestion =
+                      typeof areaData.congestion_level === "number"
+                        ? areaData.congestion_level
+                        : 5;
+
+                    let badgeClass = "bg-success";
+                    if (congestion > 3 && congestion <= 6) {
+                      badgeClass = "bg-warning";
+                    } else if (congestion > 6) {
+                      badgeClass = "bg-danger";
+                    }
+
+                    trafficHtml += `
+                      <div class="col-6 mb-2">
+                        <div class="d-flex align-items-center">
+                          <div class="me-2">
+                            <span class="badge ${badgeClass}">${congestion}/10</span>
+                          </div>
+                          <div class="small">${area}</div>
+                        </div>
+                      </div>`;
+
+                    areaCount++;
+                  }
+                }
+              }
+
+              // If no valid areas were found, show a message
+              if (areaCount === 0) {
+                trafficHtml += `
+                  <div class="col-12">
+                    <p class="small text-muted">No area-specific traffic data available</p>
+                  </div>`;
+              }
+
+              trafficHtml += `</div>`;
+
+              // Add overall city congestion information if available
+              if (
+                data.traffic.overall_city_congestion !== undefined ||
+                data.traffic.status
+              ) {
+                const overallCongestion =
+                  data.traffic.overall_city_congestion || 5;
+
+                let badgeClass = "bg-success";
+                if (overallCongestion > 3 && overallCongestion <= 6) {
+                  badgeClass = "bg-warning";
+                } else if (overallCongestion > 6) {
+                  badgeClass = "bg-danger";
+                }
+
+                trafficHtml += `
+                  <div class="alert alert-secondary mt-2 mb-0 py-2">
+                    <p class="mb-0 small"><strong>Overall City Status:</strong> 
+                      <span class="badge ${badgeClass}">${overallCongestion}/10</span>
+                      ${data.traffic.status ? ` - ${data.traffic.status}` : ""}
+                    </p>
+                  </div>`;
+              }
+
+              trafficHtml += `</div>`;
+
+              $("#trafficData").html(trafficHtml);
+            }
+
+            // Update festivals card
+            if (data.festivals) {
+              let festivalHtml = `<p class="mb-2">${
+                data.festival_summary || ""
+              }</p>`;
+
+              // Check for festival data in a safe way
+              const hasFestival = data.festivals.has_festival_today === true;
+              const festivalsList = Array.isArray(data.festivals.festivals)
+                ? data.festivals.festivals
+                : [];
+
+              if (hasFestival && festivalsList.length > 0) {
+                festivalHtml += `<div class="mt-3">`;
+
+                const today = new Date().toISOString().split("T")[0];
+
+                for (const festival of festivalsList) {
+                  if (festival.date === today) {
+                    const name = festival.name || "Event";
+                    const location = festival.location || "Various locations";
+                    const time = festival.time || "All day";
+                    const impact = festival.traffic_impact || "Low";
+
+                    let badgeClass = "bg-success";
+                    if (impact === "Moderate") {
+                      badgeClass = "bg-warning";
+                    } else if (impact === "High" || impact === "Severe") {
+                      badgeClass = "bg-danger";
+                    }
+
+                    festivalHtml += `
+                      <div class="alert alert-success py-2 px-3 mb-2">
+                        <p class="mb-1"><strong>${name}</strong></p>
+                        <p class="mb-1 small"><i class="bi bi-geo-alt me-1"></i> ${location}</p>
+                        <p class="mb-1 small"><i class="bi bi-clock me-1"></i> ${time}</p>
+                        <p class="mb-0 small">
+                          <span class="badge ${badgeClass}">${impact} impact</span>`;
+
+                    if (
+                      Array.isArray(festival.affected_areas) &&
+                      festival.affected_areas.length > 0
+                    ) {
+                      festivalHtml += `<span class="small ms-2"><i class="bi bi-geo-fill me-1"></i>Affecting: ${festival.affected_areas.join(
+                        ", "
+                      )}</span>`;
+                    }
+
+                    festivalHtml += `</p></div>`;
+                  }
+                }
+
+                festivalHtml += `</div>`;
+              } else {
+                // No festivals today - show empty state
+                festivalHtml += `
+                  <div class="mt-3">
+                    <div class="alert alert-light py-2 px-3 mb-0">
+                      <div class="text-center py-2">
+                        <i class="bi bi-calendar-x text-muted" style="font-size: 2rem;"></i>
+                        <p class="mb-0 mt-2">No festivals or events scheduled for today</p>
+                      </div>
+                    </div>
+                  </div>`;
+              }
+
+              $("#festivalData").html(festivalHtml);
+            }
+
+            // Show success notification
+            const timestamp = new Date(data.timestamp).toLocaleTimeString();
+            $(".container").prepend(`
+              <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i> Real-time data refreshed at ${timestamp}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `);
+
+            // Restore button state
+            btn.html(originalContent);
+            btn.prop("disabled", false);
+          },
+          error: function () {
+            // Show error notification
+            $(".container").prepend(`
+              <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> Failed to refresh real-time data. Please try again.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `);
+
+            // Restore button state
+            btn.html(originalContent);
+            btn.prop("disabled", false);
+          },
+        });
       });
     </script>
   </body>
