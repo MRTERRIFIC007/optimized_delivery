@@ -324,14 +324,31 @@
                 <h5>Optimized Route:</h5>
                 <div id="routeDetails"></div>
                 <div id="otpInfo" class="mt-3">
-                  <div class="alert alert-warning">
-                    <i class="bi bi-info-circle-fill me-2"></i>
-                    <strong>OTP Codes for Delivery Verification:</strong>
+                  <div class="alert alert-success">
+                    <i class="bi bi-envelope-check-fill me-2"></i>
+                    <strong>OTP Codes Sent to Customers</strong>
                     <p class="mb-0 mt-2">
-                      These codes will be sent to customers. Customers must
-                      provide these codes to the postman for delivery
-                      verification.
+                      6-digit verification codes have been sent to all customers
+                      in this route. Customers will provide these codes to
+                      verify delivery.
                     </p>
+                    <hr />
+                    <div class="text-muted small">
+                      <i class="bi bi-info-circle me-1"></i> For demo purposes,
+                      OTPs are displayed in:
+                      <ul class="mb-0 mt-1">
+                        <li>Terminal console output</li>
+                        <li>
+                          <a
+                            href="/admin/otp"
+                            target="_blank"
+                            class="text-decoration-none"
+                            >Admin OTP Dashboard</a
+                          >
+                          (opens in new tab)
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                   <div id="otpDetails" class="table-responsive">
                     <table class="table table-bordered table-striped">
@@ -339,11 +356,11 @@
                         <tr>
                           <th>Customer</th>
                           <th>Order ID</th>
-                          <th>OTP Code</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
                       <tbody id="otpTableBody">
-                        <!-- OTP details will be inserted here -->
+                        <!-- OTP notification status will be inserted here -->
                       </tbody>
                     </table>
                   </div>
@@ -705,7 +722,7 @@
                     <tr>
                       <td>${order.name}</td>
                       <td>${order.order_id}</td>
-                      <td><code class="bg-light p-1">${order.otp}</code></td>
+                      <td><span class="badge bg-success"><i class="bi bi-check-circle me-1"></i> OTP Sent</span></td>
                     </tr>
                   `;
                 }

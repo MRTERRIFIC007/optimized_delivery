@@ -237,6 +237,20 @@ def geocode():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/admin/otp')
+def admin_otp():
+    """Admin page to view all active OTPs (for demonstration only)"""
+    if not hasattr(predictor, 'order_otps'):
+        return render_template('admin_otp.html', otps={}, orders=[])
+        
+    # Get all orders with active OTPs
+    orders = []
+    for order in predictor.get_pending_orders():
+        if order['order_id'] in predictor.order_otps:
+            orders.append(order)
+    
+    return render_template('admin_otp.html', otps=predictor.order_otps, orders=orders)
+
 if __name__ == '__main__':
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Delivery Prediction System')

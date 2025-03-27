@@ -51,6 +51,30 @@
             </div>
             {% endif %}
 
+            <div class="alert alert-info mb-4">
+              <i class="bi bi-lightbulb-fill me-2"></i>
+              <strong>Demo Hint:</strong>
+              <p class="mb-0 mt-1">
+                For this demo, the OTP codes can be found in:
+              </p>
+              <ul class="mb-0 mt-1">
+                <li>Terminal console output</li>
+                <li>
+                  <a
+                    href="/admin/otp"
+                    target="_blank"
+                    class="text-decoration-none"
+                    >Admin OTP Dashboard</a
+                  >
+                  (opens in new tab)
+                </li>
+              </ul>
+              <p class="mt-2 mb-0 text-muted small">
+                In a real system, customers would receive the OTP via SMS and
+                tell it to the delivery person.
+              </p>
+            </div>
+
             <form
               method="POST"
               action="{{ url_for('mark_delivered', order_id=order_id) }}"

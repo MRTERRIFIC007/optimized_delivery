@@ -342,8 +342,13 @@ class DeliveryPredictor:
                 }
                 order_details.append(order_detail)
                 
-                # Print OTP to terminal for demonstration
-                print(f"OTP for {name}'s order #{order['order_id']}: {otp}")
+                # Print OTP to terminal for demonstration - with clear formatting
+                print("\033[1;32m" + "=" * 50 + "\033[0m")  # Green separator
+                print(f"\033[1;33m📱 SMS SENT TO CUSTOMER: {name}\033[0m")
+                print(f"\033[1;33m📦 Order #{order['order_id']} - {order['package_size']} Package\033[0m")
+                print(f"\033[1;33m📍 Delivery Address: {self.customer_addresses.get(name, 'Address not available')}\033[0m")
+                print(f"\033[1;36m🔑 VERIFICATION CODE: \033[1;31m{otp}\033[0m")
+                print("\033[1;32m" + "=" * 50 + "\033[0m")  # Green separator
         
         # Store the current optimized route
         self.current_optimized_route = {
