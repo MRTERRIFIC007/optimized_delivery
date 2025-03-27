@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import json
 import requests
 import itertools
+import string
 
 class DeliveryPredictor:
     def __init__(self, dataset_path='dataset.csv'):
@@ -39,26 +40,17 @@ class DeliveryPredictor:
             'Ishaan': 'Maninagar',
             'Kabir': 'Chandkheda'
         }
-        # Area coordinates (latitude, longitude)
-        self.area_coordinates = {
-            'Satellite': [23.0258, 72.5205],
-            'Bopal': [23.0369, 72.4650],
-            'Vastrapur': [23.0387, 72.5298],
-            'Paldi': [23.0103, 72.5577],
-            'Thaltej': [23.0553, 72.5048],
-            'Navrangpura': [23.0332, 72.5695],
-            'Bodakdev': [23.0453, 72.5107],
-            'Gota': [23.1005, 72.5148],
-            'Maninagar': [22.9973, 72.6013],
-            'Chandkheda': [23.1128, 72.5736],
-            'Start Location (Postman)': [23.0258, 72.5205]  # Same as Satellite
-        }
         # Default postman location
         self.default_location = "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India"
         # Google Maps API key
         self.google_maps_api_key = "AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg"
         # Create a stack of pending orders
         self.generate_pending_orders(20)  # Generate 20 fake pending orders
+        
+        # Store OTPs for orders
+        self.order_otps = {}
+        # Store current optimized route
+        self.current_optimized_route = None
         
     def analyze_data(self):
         """Analyze the dataset to find patterns in successful deliveries"""
@@ -289,119 +281,156 @@ class DeliveryPredictor:
         }
     
     def optimize_delivery_route(self, customer_names):
-        """Find the optimal route for delivering to multiple customers"""
-        if not customer_names:
-            return []
+        """Optimize the delivery route for selected customers"""
+        # Clear previous optimized route data
+        self.current_optimized_route = None
         
-        # Get customer addresses, consolidating multiple orders for the same customer
-        consolidated_addresses = {}
+        # Skip if no customers selected
+        if not customer_names:
+            return {"error": "No customers selected"}
+        
+        # Get customer addresses
+        addresses = []
         for name in customer_names:
             if name in self.customer_addresses:
-                # Make sure each customer has the right fixed area
-                area = self.customer_areas.get(name)
-                address = self.customer_addresses.get(name)
+                addresses.append(self.customer_addresses[name])
+            else:
+                return {"error": f"Customer {name} not found"}
+        
+        # Optimize route - for now, we're just using the provided order
+        start = self.default_location
+        route = [start] + addresses
+        route_names = ["Start Location (Postman)"] + customer_names
+        
+        total_distance = 0
+        total_duration = 0
+        legs = []
+        
+        # Calculate distances between consecutive points
+        for i in range(len(route) - 1):
+            distance_info = self.get_driving_distance(route[i], route[i+1])
+            total_distance += distance_info['distance']
+            total_duration += distance_info['duration']
+            
+            legs.append({
+                'from': route_names[i],
+                'to': route_names[i+1],
+                'distance': distance_info['distance'],
+                'duration': distance_info['duration'],
+                'from_address': route[i],
+                'to_address': route[i+1]
+            })
+        
+        # Generate OTPs for each order in the optimized route
+        order_details = []
+        for name in customer_names:
+            # Find all pending orders for this customer
+            customer_orders = [order for order in self.pending_orders if order['name'] == name]
+            
+            for order in customer_orders:
+                # Generate OTP for each order
+                otp = generate_otp()
+                self.order_otps[order['order_id']] = otp
                 
-                if name in consolidated_addresses:
-                    # Increment parcel count for existing customer
-                    consolidated_addresses[name]['parcel_count'] += 1
-                else:
-                    # Add new customer with initial parcel count of 1
-                    consolidated_addresses[name] = {
-                        'name': name,
-                        'area': area,
-                        'address': address,
-                        'parcel_count': 1
-                    }
+                order_detail = {
+                    'name': name,
+                    'order_id': order['order_id'],
+                    'package_size': order['package_size'],
+                    'area': order['area'],
+                    'address': self.customer_addresses.get(name, "Address not found"),
+                    'otp': otp
+                }
+                order_details.append(order_detail)
+                
+                # Print OTP to terminal for demonstration
+                print(f"OTP for {name}'s order #{order['order_id']}: {otp}")
         
-        # Convert consolidated dict to list
-        addresses = list(consolidated_addresses.values())
-        
-        # If only one customer, no need for optimization
-        if len(addresses) <= 1:
-            return addresses
-        
-        # For small number of locations, use brute force to find optimal route
-        start_location = self.default_location
-        
-        # Calculate distances between all points
-        distance_matrix = {}
-        
-        # Distance from start location to each customer
-        for cust in addresses:
-            key = (start_location, cust['address'])
-            distance_matrix[key] = self.get_driving_distance(start_location, cust['address'])
-        
-        # Distance between every pair of customers
-        for cust1, cust2 in itertools.combinations(addresses, 2):
-            key1 = (cust1['address'], cust2['address'])
-            key2 = (cust2['address'], cust1['address'])  # Assuming symmetric distances
-            distance = self.get_driving_distance(cust1['address'], cust2['address'])
-            distance_matrix[key1] = distance
-            distance_matrix[key2] = distance
-        
-        # Try all permutations of customers to find shortest route
-        best_route = None
-        min_total_distance = float('inf')
-        
-        for perm in itertools.permutations(addresses):
-            total_distance = 0
-            
-            # Distance from start to first customer
-            key = (start_location, perm[0]['address'])
-            total_distance += distance_matrix[key]['distance']
-            
-            # Distance between consecutive customers
-            for i in range(len(perm) - 1):
-                key = (perm[i]['address'], perm[i+1]['address'])
-                total_distance += distance_matrix[key]['distance']
-            
-            # Return to start (optional)
-            # key = (perm[-1]['address'], start_location)
-            # total_distance += distance_matrix[key]['distance']
-            
-            if total_distance < min_total_distance:
-                min_total_distance = total_distance
-                best_route = perm
-        
-        # Prepare the result with detailed route information
-        route_details = []
-        
-        # First leg: Start to first customer
-        first_leg = {
-            'from': 'Start Location (Postman)',
-            'from_address': start_location,
-            'to': best_route[0]['name'] + (f" ({best_route[0]['parcel_count']} parcels)" if best_route[0]['parcel_count'] > 1 else ""),
-            'to_address': best_route[0]['address'],
-            'distance': distance_matrix[(start_location, best_route[0]['address'])]['text_distance'],
-            'duration': distance_matrix[(start_location, best_route[0]['address'])]['text_duration']
+        # Store the current optimized route
+        self.current_optimized_route = {
+            'route': route_names[1:],  # Exclude start location
+            'total_distance': round(total_distance, 1),
+            'total_duration': total_duration,
+            'legs': legs,
+            'order_details': order_details
         }
-        route_details.append(first_leg)
         
-        # Add remaining legs
-        for i in range(len(best_route) - 1):
-            leg = {
-                'from': best_route[i]['name'] + (f" ({best_route[i]['parcel_count']} parcels)" if best_route[i]['parcel_count'] > 1 else ""),
-                'from_address': best_route[i]['address'],
-                'to': best_route[i+1]['name'] + (f" ({best_route[i+1]['parcel_count']} parcels)" if best_route[i+1]['parcel_count'] > 1 else ""),
-                'to_address': best_route[i+1]['address'],
-                'distance': distance_matrix[(best_route[i]['address'], best_route[i+1]['address'])]['text_distance'],
-                'duration': distance_matrix[(best_route[i]['address'], best_route[i+1]['address'])]['text_duration']
+        return self.current_optimized_route
+    
+    def verify_otp(self, order_id, provided_otp):
+        """Verify OTP for an order"""
+        if order_id not in self.order_otps:
+            return False
+        
+        return self.order_otps[order_id] == provided_otp
+    
+    def mark_delivered(self, order_id, success=True, otp=None):
+        """Mark an order as delivered with OTP verification"""
+        # If OTP is provided, verify it
+        if otp is not None:
+            if not self.verify_otp(order_id, otp):
+                return {"success": False, "error": "Invalid OTP"}
+                
+        # Find the order in the pending list
+        order_index = None
+        for i, order in enumerate(self.pending_orders):
+            if order['order_id'] == order_id:
+                order_index = i
+                break
+        
+        if order_index is None:
+            return {"success": False, "error": "Order not found"}
+        
+        # Get order details
+        order = self.pending_orders[order_index]
+        
+        # Remove from pending
+        del self.pending_orders[order_index]
+        
+        # Add to order history in the dataset
+        if success:
+            new_row = {
+                'Name': order['name'],
+                'Area': order['area'],
+                'Package Size': order['package_size'],
+                'Day of Delivery Attempt': datetime.now().strftime('%A'),
+                'Time': self._get_current_time_slot(),
+                'Delivery Status': 'Success'
             }
-            route_details.append(leg)
-        
-        # Format route names with parcel counts
-        route_names = []
-        for item in best_route:
-            name = item['name']
-            if item['parcel_count'] > 1:
-                name += f" ({item['parcel_count']} parcels)"
-            route_names.append(name)
-        
-        return {
-            'route': route_names,
-            'total_distance': f"{min_total_distance:.1f} km",
-            'details': route_details
-        }
+            
+            # Append to dataframe
+            self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
+            
+            # Save updated dataset
+            self.df.to_csv('dataset.csv', index=False)
+            
+            # Clean up OTP for this order
+            if order_id in self.order_otps:
+                del self.order_otps[order_id]
+            
+            return {"success": True, "message": "Order marked as delivered"}
+        else:
+            # Record failed delivery attempt
+            new_row = {
+                'Name': order['name'],
+                'Area': order['area'],
+                'Package Size': order['package_size'],
+                'Day of Delivery Attempt': datetime.now().strftime('%A'),
+                'Time': self._get_current_time_slot(),
+                'Delivery Status': 'Failed'
+            }
+            
+            # Append to dataframe
+            self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
+            
+            # Save updated dataset
+            self.df.to_csv('dataset.csv', index=False)
+            
+            # Add back to pending with a new order ID and future date
+            order['order_id'] = max([o['order_id'] for o in self.pending_orders]) + 1 if self.pending_orders else 1
+            order['delivery_day'] = (datetime.now() + timedelta(days=1)).strftime('%A')
+            self.pending_orders.append(order)
+            
+            return {"success": True, "message": "Order marked as failed and rescheduled"}
     
     def generate_pending_orders(self, num_orders=20):
         """Generate a stack of fake pending orders"""
@@ -453,110 +482,54 @@ class DeliveryPredictor:
     
     def add_order(self, name, delivery_day, package_size=None):
         """Add a new order to the pending stack"""
-        # Validate inputs
-        if name not in self.customer_areas:
-            raise ValueError(f"Customer {name} not found in customer list")
+        # Use the fixed area for this customer
+        area = self.customer_areas.get(name, "Unknown")
         
-        if not delivery_day:
-            raise ValueError("Delivery day is required")
-        
-        if not package_size:
-            # Randomly select a package size if not provided
+        if package_size is None:
             package_size = random.choice(['Small', 'Medium', 'Large'])
+            
+        order_id = max([o['order_id'] for o in self.pending_orders]) + 1 if self.pending_orders else 10000
         
-        # Get the area for the customer (fixed)
-        area = self.customer_areas[name]
-        address = self.customer_addresses.get(name, "Unknown address")
-        
-        # Get next order ID
-        try:
-            next_id = max([order.get('order_id', order.get('id', 0)) for order in self.pending_orders]) + 1
-        except (ValueError, AttributeError):
-            next_id = 1
-        
-        # Create the order
         order = {
-            'order_id': next_id,
+            'order_id': order_id,
             'name': name,
-            'area': area,
-            'address': address,
             'delivery_day': delivery_day,
+            'area': area,
+            'address': self.customer_addresses.get(name, "Address not available"),
             'package_size': package_size,
+            'status': 'Pending',
             'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
-        # Add to pending orders
         self.pending_orders.append(order)
         
-        return next_id
-    
-    def update_order(self, order_id, update_data):
-        """Update an existing order in the pending stack"""
-        if not hasattr(self, 'pending_orders'):
-            return False
+        # Update JSON file
+        with open('pending_orders.json', 'w') as f:
+            json.dump(self.pending_orders, f, indent=2)
             
-        # Find the order by ID
-        for i, order in enumerate(self.pending_orders):
-            current_id = order.get('order_id', order.get('id'))
-            if current_id == order_id:
-                # Update the order with the new data
-                for key, value in update_data.items():
-                    self.pending_orders[i][key] = value
-                return True
-                
-        # Order not found
-        return False
-    
-    def mark_delivered(self, order_id, success=True):
-        """Mark an order as delivered"""
-        for i, order in enumerate(self.pending_orders):
-            if order['order_id'] == order_id:
-                status = 'Success' if success else 'Fail'
-                self.pending_orders[i]['status'] = status
-                
-                # Add to dataset for future predictions
-                new_entry = {
-                    'Name': order['name'],
-                    'Day of Delivery Attempt': order['delivery_day'],
-                    'Time': datetime.now().strftime('%-I %p').replace(' 0', ' '),  # Format like "2 PM"
-                    'Area': order['area'],
-                    'Package Size': order['package_size'],
-                    'Delivery Status': status
-                }
-                
-                # Append to CSV
-                new_df = pd.DataFrame([new_entry])
-                new_df.to_csv('dataset.csv', mode='a', header=False, index=False)
-                
-                # Remove from pending
-                self.pending_orders.pop(i)
-                
-                # Update JSON file
-                with open('pending_orders.json', 'w') as f:
-                    json.dump(self.pending_orders, f, indent=2)
-                
-                return True
-        
-        return False
+        return order_id
     
     def get_todays_orders(self):
-        """Return orders scheduled for today"""
-        today = datetime.now().strftime('%A')
-        return [order for order in self.pending_orders if order['delivery_day'] == today]
-    
-    def get_customer_coordinates(self, customer_name):
-        """Get coordinates for a customer based on their area"""
-        if customer_name == "Start Location (Postman)":
-            return self.area_coordinates.get("Satellite", [23.0225, 72.5714])
-        
-        # Get the area for this customer
-        area = self.customer_areas.get(customer_name)
-        if not area:
-            # Return default coordinates if customer not found
-            return [23.0225, 72.5714]  # Default to Ahmedabad center
-        
-        # Return coordinates for this area
-        return self.area_coordinates.get(area, [23.0225, 72.5714])
+        """Get orders scheduled for today"""
+        current_day = datetime.now().strftime('%A')
+        return [order for order in self.pending_orders if order['delivery_day'] == current_day]
+
+    def _get_current_time_slot(self):
+        """Get the current time formatted for the dataset (e.g., '2 PM')"""
+        current_hour = datetime.now().hour
+        if current_hour == 0:
+            return "12 AM"
+        elif current_hour < 12:
+            return f"{current_hour} AM"
+        elif current_hour == 12:
+            return "12 PM"
+        else:
+            return f"{current_hour - 12} PM"
+
+# Generate OTP method
+def generate_otp(length=6):
+    """Generate a random numeric OTP of specified length"""
+    return ''.join(random.choices(string.digits, k=length))
 
 # Test the predictor
 if __name__ == "__main__":

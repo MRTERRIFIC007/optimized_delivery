@@ -259,48 +259,53 @@
 
         <!-- Right Column -->
         <div class="col-md-6">
-          <!-- Route Optimization Section -->
-          <div class="card mb-4">
-            <div class="card-header bg-info text-white">
+          <!-- Route Optimization -->
+          <div class="card mt-4">
+            <div class="card-header bg-dark text-white">
               <h4>Route Optimization</h4>
             </div>
             <div class="card-body">
-              <p>Plan the most efficient delivery route for today's orders.</p>
-
-              <form id="routeOptimizationForm">
+              <h5>
+                Plan the most efficient delivery route for today's orders.
+              </h5>
+              <form id="routeForm">
                 <div class="mb-3">
                   <label class="form-label"
                     >Select Customers for Today's Delivery Route:</label
                   >
-                  <div class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      id="selectAllCustomers"
-                    />
-                    <label class="form-check-label" for="selectAllCustomers">
-                      Select All Today's Orders
-                    </label>
+                  <div class="d-flex mb-2">
+                    <button
+                      type="button"
+                      id="selectAllBtn"
+                      class="btn btn-sm btn-outline-primary me-2"
+                    >
+                      <i class="bi bi-check-all"></i> Select All Today's Orders
+                    </button>
+                    <button
+                      type="button"
+                      id="clearSelectionBtn"
+                      class="btn btn-sm btn-outline-secondary"
+                    >
+                      <i class="bi bi-x-lg"></i> Clear Selection
+                    </button>
                   </div>
-
-                  <div id="todaysOrdersList" class="mt-2">
+                  <div id="customerSelection">
                     {% for order in grouped_todays_orders %}
                     <div class="form-check">
                       <input
                         class="form-check-input customer-checkbox"
                         type="checkbox"
-                        name="selected_customers[]"
                         value="{{ order.name }}"
-                        id="customer-{{ order.order_id }}"
-                        data-count="{{ order.parcel_count }}"
+                        id="check_{{ order.name }}"
+                        name="selected_customers[]"
                       />
                       <label
                         class="form-check-label"
-                        for="customer-{{ order.order_id }}"
+                        for="check_{{ order.name }}"
                       >
-                        {{ order.name }} ({{ order.area }}) {% if
-                        order.parcel_count > 1 %}
-                        <span class="badge bg-primary"
+                        <span class="fw-bold">{{ order.name }}</span> ({{
+                        order.area }}) {% if order.parcel_count > 1 %}
+                        <span class="badge bg-info text-dark"
                           >{{ order.parcel_count }} parcels</span
                         >
                         {% endif %}
@@ -310,47 +315,42 @@
                     {% endfor %}
                   </div>
                 </div>
-
-                <button type="submit" class="btn btn-info">
-                  Optimize Route
+                <button type="submit" class="btn btn-dark">
+                  <i class="bi bi-shuffle"></i> Optimize Route
                 </button>
               </form>
 
-              <div
-                id="routeLoadingIndicator"
-                class="text-center my-4"
-                style="display: none"
-              >
-                <div class="spinner-border text-info" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Calculating optimal delivery route...</p>
-              </div>
-
-              <div id="routeResult" class="mt-4" style="display: none">
-                <h5 id="routeSummary" class="mb-3">Optimal Delivery Route:</h5>
-
-                <div id="distance-container" class="alert alert-info">
-                  <strong>Total Distance:</strong>
-                  <span id="total-distance"></span> km
-                </div>
-
-                <div id="map" class="route-map mb-3"></div>
-
-                <div id="route-details" class="mt-4">
-                  <h5>Route Details</h5>
-                  <div id="route-stops">
-                    <!-- Table will be inserted here by JavaScript -->
+              <div id="routeResults" class="mt-4" style="display: none">
+                <h5>Optimized Route:</h5>
+                <div id="routeDetails"></div>
+                <div id="otpInfo" class="mt-3">
+                  <div class="alert alert-warning">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    <strong>OTP Codes for Delivery Verification:</strong>
+                    <p class="mb-0 mt-2">
+                      These codes will be sent to customers. Customers must
+                      provide these codes to the postman for delivery
+                      verification.
+                    </p>
+                  </div>
+                  <div id="otpDetails" class="table-responsive">
+                    <table class="table table-bordered table-striped">
+                      <thead>
+                        <tr>
+                          <th>Customer</th>
+                          <th>Order ID</th>
+                          <th>OTP Code</th>
+                        </tr>
+                      </thead>
+                      <tbody id="otpTableBody">
+                        <!-- OTP details will be inserted here -->
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                <div class="mt-3 text-end">
-                  <button id="resetRouteBtn" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-counterclockwise"></i> Plan New Route
-                  </button>
-                  <button id="returnToStart" class="btn btn-primary">
-                    <i class="bi bi-house"></i> Return to Start
-                  </button>
+                <div class="mt-3">
+                  <div id="routeMap" class="route-map"></div>
                 </div>
               </div>
             </div>
@@ -358,24 +358,10 @@
 
           <!-- Pending Orders -->
           <div class="card">
-            <div
-              class="card-header bg-warning d-flex justify-content-between align-items-center"
-            >
+            <div class="card-header bg-warning">
               <h4>Pending Orders ({{ pending_orders|length }})</h4>
-              <button
-                id="scheduleSelectedBtn"
-                class="btn btn-sm btn-primary"
-                style="display: none"
-              >
-                <i class="bi bi-calendar-check"></i> Schedule Selected Orders
-              </button>
             </div>
             <div class="card-body">
-              <!-- Hidden form for scheduling orders -->
-              <form id="scheduleOrdersForm" style="display: none">
-                <div id="selectedOrdersContainer"></div>
-              </form>
-
               <div class="list-group" id="ordersContainer">
                 {% for group in grouped_pending_orders %}
                 <div class="card order-card">
@@ -403,25 +389,8 @@
                             <strong>#{{ order.order_id }}</strong> - {{
                             order.package_size }} package
                             <span class="badge bg-warning ms-2"
-                              >{{ order.status|default('Pending') }}</span
+                              >{{ order.status }}</span
                             >
-                            <div class="form-check form-check-inline ms-2">
-                              <input
-                                class="form-check-input schedule-checkbox"
-                                type="checkbox"
-                                value="{{ order.order_id }}"
-                                id="schedule-{{ order.order_id }}"
-                                data-order-id="{{ order.order_id }}"
-                                data-customer-name="{{ order.name }}"
-                                data-area="{{ order.area }}"
-                              />
-                              <label
-                                class="form-check-label"
-                                for="schedule-{{ order.order_id }}"
-                              >
-                                Schedule for today
-                              </label>
-                            </div>
                           </div>
                           <div class="btn-group" role="group">
                             <a
@@ -439,18 +408,6 @@
                         {% endfor %}
                       </ul>
                     </div>
-                    {% if current_day != group.delivery_day %}
-                    <div class="d-grid gap-2 mt-3">
-                      <button
-                        class="btn btn-primary schedule-for-today-btn"
-                        data-group-orders="{{ group.orders|map(attribute='order_id')|list|tojson }}"
-                        data-group-name="{{ group.name }}"
-                      >
-                        <i class="bi bi-calendar-check"></i> Schedule All for
-                        Today ({{ current_day }})
-                      </button>
-                    </div>
-                    {% endif %}
                   </div>
                 </div>
                 {% endfor %}
@@ -578,100 +535,8 @@
       }
 
       $(document).ready(function () {
-        // Store current day for use in JavaScript
-        const currentDay = "{{ current_day }}";
-
         // Initialize area display
         updateAreaInfo();
-
-        // Check if we have a scheduled route to display after page reload
-        if (localStorage.getItem("scheduleSuccess") === "true") {
-          try {
-            const scheduledRouteJson = localStorage.getItem("scheduledRoute");
-            if (!scheduledRouteJson) {
-              throw new Error("Missing scheduled route data");
-            }
-
-            const scheduledRoute = JSON.parse(scheduledRouteJson);
-
-            if (
-              !scheduledRoute ||
-              !scheduledRoute.route ||
-              !Array.isArray(scheduledRoute.route) ||
-              scheduledRoute.route.length === 0
-            ) {
-              throw new Error("Invalid scheduled route data format");
-            }
-
-            // Clear the success flag
-            localStorage.removeItem("scheduleSuccess");
-            localStorage.removeItem("scheduledRoute");
-
-            // Auto-check the customer checkboxes based on the route
-            $("#selectAllCustomers").prop("checked", true);
-            $(".customer-checkbox").each(function () {
-              try {
-                // Get customer name from the checkbox
-                const customerName = $(this).val();
-                if (!customerName) return;
-
-                // Check if this customer is in the route
-                if (
-                  scheduledRoute.route.some(
-                    (routeItem) =>
-                      routeItem &&
-                      typeof routeItem === "string" &&
-                      routeItem.startsWith(customerName)
-                  )
-                ) {
-                  $(this).prop("checked", true);
-                }
-              } catch (checkboxError) {
-                console.error(
-                  "Error checking customer checkbox:",
-                  checkboxError
-                );
-              }
-            });
-
-            // Show loading indicator briefly
-            $("#routeLoadingIndicator").show();
-
-            // Display the optimized route after a short delay
-            setTimeout(function () {
-              $("#routeLoadingIndicator").hide();
-              try {
-                displayOptimizedRoute(scheduledRoute);
-              } catch (displayError) {
-                console.error(
-                  "Error displaying scheduled route:",
-                  displayError
-                );
-                alert(
-                  "Error displaying the scheduled route. Please try again."
-                );
-              }
-
-              // Scroll to the route result
-              try {
-                if ($("#routeResult").is(":visible")) {
-                  $("html, body").animate(
-                    {
-                      scrollTop: $("#routeResult").offset().top - 50,
-                    },
-                    500
-                  );
-                }
-              } catch (scrollError) {
-                console.error("Error scrolling to route result:", scrollError);
-              }
-            }, 500);
-          } catch (error) {
-            console.error("Error processing scheduled route:", error);
-            localStorage.removeItem("scheduleSuccess");
-            localStorage.removeItem("scheduledRoute");
-          }
-        }
 
         // Reset route planning
         $(document).on("click", "#resetRouteBtn", function () {
@@ -746,810 +611,1233 @@
         });
 
         // Route optimization form submission
-        $("#routeOptimizationForm").submit(function (e) {
+        $("#routeForm").submit(function (e) {
           e.preventDefault();
 
-          // Get selected customers with counts
-          const selectedCustomers = [];
-          $(".customer-checkbox:checked").each(function () {
-            const customerName = $(this).val();
-            const count = parseInt($(this).data("count") || 1);
-
-            // Add the customer to the list based on the parcel count
-            for (let i = 0; i < count; i++) {
-              selectedCustomers.push(customerName);
-            }
-          });
+          // Check if at least one customer is selected
+          if ($(".customer-checkbox:checked").length === 0) {
+            alert("Please select at least one customer for route optimization");
+            return;
+          }
 
           // Show loading indicator
-          $("#routeLoadingIndicator").show();
-          $("#routeResult").hide();
+          const btnText = $("button[type='submit']", this).html();
+          $("button[type='submit']", this).html(
+            '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Optimizing...'
+          );
+          $("button[type='submit']", this).prop("disabled", true);
 
-          // Build the form data
-          const formData = new FormData();
-          selectedCustomers.forEach((name) => {
-            formData.append("selected_customers[]", name);
-          });
+          // Get form data
+          const formData = $(this).serialize();
 
+          // Send AJAX request
           $.ajax({
             url: "/optimize_route",
             type: "POST",
             data: formData,
-            processData: false,
-            contentType: false,
             success: function (response) {
               // Hide loading indicator
-              $("#routeLoadingIndicator").hide();
+              $("button[type='submit']", "#routeForm").html(btnText);
+              $("button[type='submit']", "#routeForm").prop("disabled", false);
 
-              // Display optimized route
-              displayOptimizedRoute(response);
+              // Display route results
+              $("#routeResults").show();
+
+              // If there's an error, show it
+              if (response.error) {
+                $("#routeDetails").html(`
+                  <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> ${response.error}
+                  </div>
+                `);
+                $("#otpInfo").hide();
+                return;
+              }
+
+              // Build the route details HTML
+              let routeDetailsHtml = `
+                <div class="alert alert-success">
+                  <i class="bi bi-check-circle-fill me-2"></i> <strong>Optimized Route Created!</strong><br>
+                  Total Distance: ${response.total_distance} km<br>
+                  Estimated Time: ${response.total_duration} minutes
+                </div>
+                
+                <div class="route-segments mb-3">
+                  <h6 class="mb-2">Delivery Sequence:</h6>
+              `;
+
+              // Add the route segments
+              for (let i = 0; i < response.route.length; i++) {
+                routeDetailsHtml += `
+                  <div class="route-segment">
+                    <div class="d-flex align-items-center">
+                      <div class="route-number me-3">
+                        <span class="badge bg-dark rounded-circle p-2">${
+                          i + 1
+                        }</span>
+                      </div>
+                      <div>
+                        <strong>${response.route[i]}</strong>
+                        <div class="text-muted small">
+                          ${
+                            response.legs && response.legs[i]
+                              ? response.legs[i].to_address
+                              : ""
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }
+
+              routeDetailsHtml += `</div>`;
+
+              $("#routeDetails").html(routeDetailsHtml);
+
+              // Display OTP information
+              if (response.order_details && response.order_details.length > 0) {
+                $("#otpInfo").show();
+                let otpTableHtml = "";
+
+                for (const order of response.order_details) {
+                  otpTableHtml += `
+                    <tr>
+                      <td>${order.name}</td>
+                      <td>${order.order_id}</td>
+                      <td><code class="bg-light p-1">${order.otp}</code></td>
+                    </tr>
+                  `;
+                }
+
+                $("#otpTableBody").html(otpTableHtml);
+              } else {
+                $("#otpInfo").hide();
+              }
+
+              // Initialize route map
+              initRouteMap(response);
             },
-            error: function (error) {
-              // Hide loading indicator and show error
-              $("#routeLoadingIndicator").hide();
-              alert(
-                "An error occurred while optimizing the route. Please try again."
-              );
-              console.error("Route optimization error:", error);
+            error: function (xhr, status, error) {
+              // Hide loading indicator
+              $("button[type='submit']", "#routeForm").html(btnText);
+              $("button[type='submit']", "#routeForm").prop("disabled", false);
+
+              // Show error
+              $("#routeResults").show();
+              $("#routeDetails").html(`
+                <div class="alert alert-danger">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i> Error creating route: ${error}
+                </div>
+              `);
+              $("#otpInfo").hide();
             },
           });
         });
 
-        // Function to display the optimized route
-        function displayOptimizedRoute(route) {
-          // Check if route object is valid
-          if (!route || typeof route !== "object") {
-            console.error("Invalid route object:", route);
-            alert("Failed to display route - invalid data received.");
-            return;
-          }
-
-          // Show the route details section
-          $("#route-details").show();
-          $("#routeResult").show();
-
-          // Update the route summary
-          if (route.route && Array.isArray(route.route)) {
-            $("#routeSummary").text(
-              `Optimal delivery route with ${route.route.length - 1} stops`
-            );
-          } else {
-            $("#routeSummary").text("Optimal delivery route");
-          }
-
-          // Clear previous route details
-          $("#route-stops").empty();
-
-          // Add each stop to the route details
-          if (
-            route.route &&
-            Array.isArray(route.route) &&
-            route.route.length > 0
-          ) {
-            // Start populating the table
-            var tableHtml = `
-                  <table class="table">
-                      <thead>
-                          <tr>
-                              <th>#</th>
-                              <th>Location</th>
-                              <th>Area</th>
-                              <th>Address</th>
-                              <th>Distance</th>
-                          </tr>
-                      </thead>
-                      <tbody>`;
-
-            let stopNumber = 0;
-
-            // Loop through each location in the route
-            for (let i = 0; i < route.route.length; i++) {
-              let location = route.route[i];
-              let area =
-                route.areas && route.areas[i] ? route.areas[i] : "Unknown";
-              let address =
-                route.addresses && route.addresses[i]
-                  ? route.addresses[i]
-                  : "Unknown";
-              let distance =
-                route.distances && route.distances[i]
-                  ? route.distances[i] + " km"
-                  : "";
-
-              // Skip "Start Location (Postman)" in the count but still show it
-              if (location.includes("Start Location")) {
-                tableHtml += `
-                          <tr class="table-primary">
-                              <td><i class="bi bi-house-fill"></i></td>
-                              <td>${location}</td>
-                              <td>${area}</td>
-                              <td>${address}</td>
-                              <td>${distance}</td>
-                          </tr>`;
-              } else {
-                stopNumber++;
-
-                // Check if this is a customer with multiple parcels
-                let parcelCount = 1;
-                let displayName = location;
-
-                if (location.includes(" (")) {
-                  // Extract the parcel count if it exists
-                  let match = location.match(/ \((\d+)\)/);
-                  if (match && match[1]) {
-                    parcelCount = parseInt(match[1]);
-                  }
-
-                  // Extract just the name portion
-                  displayName = location.split(" (")[0];
-                }
-
-                tableHtml += `
-                          <tr>
-                              <td>${stopNumber}</td>
-                              <td>${displayName}${
-                  parcelCount > 1
-                    ? ` <span class="badge bg-info">${parcelCount} parcels</span>`
-                    : ""
-                }</td>
-                              <td>${area}</td>
-                              <td>${address}</td>
-                              <td>${distance}</td>
-                          </tr>`;
-              }
-            }
-
-            // Complete the table
-            tableHtml += `
-                      </tbody>
-                  </table>`;
-
-            // Add the table to the route-stops element
-            $("#route-stops").html(tableHtml);
-
-            // Show total distance if available
-            if (route.total_distance) {
-              $("#total-distance").text(route.total_distance);
-              $("#distance-container").show();
-            } else {
-              $("#distance-container").hide();
-            }
-
-            // Initialize the map with the route
-            try {
-              initMap(route);
-            } catch (error) {
-              console.error("Error initializing map:", error);
-            }
-          } else {
-            // Display message when no route is available
-            $("#route-stops").html(
-              '<div class="alert alert-warning">No valid route data available.</div>'
-            );
-            $("#distance-container").hide();
-          }
-        }
-
-        // Initialize the map with the optimized route
-        function initMap(routeData) {
-          // Validate route data
-          if (!routeData || typeof routeData !== "object") {
-            console.error("Invalid route data passed to initMap:", routeData);
-            return;
-          }
-
+        // Function to initialize the route map using Leaflet
+        function initRouteMap(routeData) {
           // Clear any existing map
-          if (window.map) {
-            try {
-              window.map.remove();
-            } catch (error) {
-              console.error("Error removing existing map:", error);
-            }
-          }
+          $("#routeMap").empty();
+          $("#routeMap").html('<div id="map" style="height: 400px;"></div>');
 
-          // Default center (Ahmedabad)
-          const defaultCenter = [23.0225, 72.5714];
+          // Define coordinates for Ahmedabad areas (accurate)
+          const areaCoordinates = {
+            Satellite: [23.030357, 72.517845],
+            Bopal: [23.032011, 72.467816],
+            Vastrapur: [23.0362554310379, 72.5305526298169],
+            Paldi: [23.013054, 72.562515],
+            Thaltej: [23.049736, 72.511726],
+            Navrangpura: [23.036406, 72.561066],
+            Bodakdev: [23.0394524, 72.512492],
+            Gota: [23.104, 72.5399],
+            Maninagar: [22.99617, 72.599586],
+            Chandkheda: [23.11842, 72.586777],
+            "Start Location (Postman)": [23.0269, 72.5297], // Iscon Center, Shivranjani Cross Road coordinates
+          };
 
-          // Initialize postman location (start location)
-          let postmanLocation = defaultCenter;
+          // Define customer address coordinates for Leaflet geocoding
+          const customerAddresses = {
+            Aditya: {
+              address:
+                "Near Jodhpur Cross Road, Satellite, Ahmedabad, Gujarat, India",
+              area: "Satellite",
+              coords: [23.030357, 72.517845],
+              geocodeAddress: "Satellite, Ahmedabad, Gujarat, India",
+            },
+            Vivaan: {
+              address: "Near Bopal Cross Road, Bopal, Ahmedabad - 380058",
+              area: "Bopal",
+              coords: [23.032011, 72.467816],
+              geocodeAddress: "Bopal, Ahmedabad, Gujarat, India",
+            },
+            Aarav: {
+              address: "Near Vastrapur Lake, Vastrapur, Ahmedabad - 380015",
+              area: "Vastrapur",
+              coords: [23.0362554310379, 72.5305526298169],
+              geocodeAddress: "Vastrapur, Ahmedabad, Gujarat, India",
+            },
+            Meera: {
+              address: "Opposite Dharnidhar Derasar, Paldi, Ahmedabad - 380007",
+              area: "Paldi",
+              coords: [23.013054, 72.562515],
+              geocodeAddress: "Paldi, Ahmedabad, Gujarat, India",
+            },
+            Diya: {
+              address:
+                "Near Thaltej Cross Road, S.G. Highway, Ahmedabad - 380054",
+              area: "Thaltej",
+              coords: [23.049736, 72.511726],
+              geocodeAddress: "Thaltej, Ahmedabad, Gujarat, India",
+            },
+            Riya: {
+              address:
+                "Near Navrangpura AMTS Bus Stop, Navrangpura, Ahmedabad - 380009",
+              area: "Navrangpura",
+              coords: [23.036406, 72.561066],
+              geocodeAddress: "Navrangpura, Ahmedabad, Gujarat, India",
+            },
+            Ananya: {
+              address: "Opposite Rajpath Club, Bodakdev, Ahmedabad - 380054",
+              area: "Bodakdev",
+              coords: [23.0394524, 72.512492],
+              geocodeAddress: "Bodakdev, Ahmedabad, Gujarat, India",
+            },
+            Aryan: {
+              address: "Near Oganaj Gam, Gota, Ahmedabad - 382481",
+              area: "Gota",
+              coords: [23.104, 72.5399],
+              geocodeAddress: "Gota, Ahmedabad, Gujarat, India",
+            },
+            Ishaan: {
+              address:
+                "Opposite Rambaug Police Station, Maninagar, Ahmedabad - 380008",
+              area: "Maninagar",
+              coords: [22.99617, 72.599586],
+              geocodeAddress: "Maninagar, Ahmedabad, Gujarat, India",
+            },
+            Kabir: {
+              address:
+                "Near Chandkheda Gam Bus Stop, Chandkheda, Ahmedabad - 382424",
+              area: "Chandkheda",
+              coords: [23.11842, 72.586777],
+              geocodeAddress: "Chandkheda, Ahmedabad, Gujarat, India",
+            },
+            "Start Location (Postman)": {
+              address:
+                "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India",
+              area: "Satellite",
+              coords: [23.0269, 72.5297],
+              geocodeAddress:
+                "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India",
+            },
+          };
+
+          // Initialize map centered on postman's location (Satellite)
+          const defaultCenter = [23.0225, 72.5714]; // Ahmedabad center as fallback
+          let postmanLocation;
 
           try {
-            const startLocationName = "Start Location (Postman)";
-
-            if (routeData.route && Array.isArray(routeData.route)) {
-              const startIndex = routeData.route.findIndex(
-                (loc) =>
-                  loc &&
-                  typeof loc === "string" &&
-                  loc.includes(startLocationName)
-              );
-
-              if (
-                startIndex !== -1 &&
-                routeData.coordinates &&
-                Array.isArray(routeData.coordinates) &&
-                routeData.coordinates[startIndex]
-              ) {
-                // Get coordinates from the route data
-                const rawCoords = routeData.coordinates[startIndex];
-                if (
-                  Array.isArray(rawCoords) &&
-                  rawCoords.length === 2 &&
-                  !isNaN(parseFloat(rawCoords[0])) &&
-                  !isNaN(parseFloat(rawCoords[1]))
-                ) {
-                  postmanLocation = [
-                    parseFloat(rawCoords[0]),
-                    parseFloat(rawCoords[1]),
-                  ];
-                } else {
-                  console.warn(
-                    "Invalid start location coordinates, using default"
-                  );
-                }
-              } else {
-                console.warn(
-                  "Start location not found in route, using default"
-                );
-              }
+            // Get postman location with validation
+            const rawLocation = areaCoordinates["Start Location (Postman)"];
+            if (
+              rawLocation &&
+              Array.isArray(rawLocation) &&
+              rawLocation.length === 2 &&
+              !isNaN(parseFloat(rawLocation[0])) &&
+              !isNaN(parseFloat(rawLocation[1]))
+            ) {
+              // Parse as floats for stability
+              postmanLocation = [
+                parseFloat(rawLocation[0]),
+                parseFloat(rawLocation[1]),
+              ];
             } else {
               console.warn(
-                "Route array is missing or invalid, using default location"
+                "Invalid postman location in data, using default:",
+                rawLocation
               );
+              postmanLocation = defaultCenter;
             }
           } catch (error) {
-            console.error("Error initializing postman location", error);
+            console.error("Error setting postman location:", error);
+            postmanLocation = defaultCenter;
           }
 
-          // Create the map
-          try {
-            window.map = L.map("map").setView(postmanLocation, 13);
+          // Create the map with validated location
+          const map = L.map("map").setView(postmanLocation, 15);
 
-            // Add the tile layer (OpenStreetMap)
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-              attribution:
-                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            }).addTo(window.map);
-          } catch (error) {
-            console.error("Error creating map:", error);
-            return;
-          }
+          // Set max bounds to Ahmedabad region to prevent excessive panning
+          const southWest = L.latLng(22.9, 72.4);
+          const northEast = L.latLng(23.2, 72.7);
+          map.setMaxBounds(L.latLngBounds(southWest, northEast));
 
-          // Prepare waypoints for the route
-          const waypoints = [];
-          const validLocations = [];
+          // Add OpenStreetMap tile layer
+          L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "© OpenStreetMap",
+          }).addTo(map);
 
-          // Process each location in the route
-          if (
-            routeData.route &&
-            Array.isArray(routeData.route) &&
-            routeData.coordinates &&
-            Array.isArray(routeData.coordinates)
-          ) {
-            routeData.route.forEach((location, index) => {
-              if (routeData.coordinates[index]) {
-                const coords = routeData.coordinates[index];
-
-                // Validate coordinates
-                if (
-                  location &&
-                  typeof location === "string" &&
-                  Array.isArray(coords) &&
-                  coords.length === 2 &&
-                  !isNaN(parseFloat(coords[0])) &&
-                  !isNaN(parseFloat(coords[1]))
-                ) {
-                  const lat = parseFloat(coords[0]);
-                  const lng = parseFloat(coords[1]);
-
-                  // Add to waypoints for routing
-                  waypoints.push(L.latLng(lat, lng));
-
-                  // Store valid location data for markers
-                  validLocations.push({
-                    name: location,
-                    coords: [lat, lng],
-                    area:
-                      routeData.areas && routeData.areas[index]
-                        ? routeData.areas[index]
-                        : "Unknown",
-                    address:
-                      routeData.addresses && routeData.addresses[index]
-                        ? routeData.addresses[index]
-                        : "Unknown",
-                    isStart: location.includes("Start Location"),
-                  });
-                }
-              }
-            });
-          } else {
-            console.warn("No valid route or coordinates data for waypoints");
-          }
-
-          // Add markers for each valid location
-          validLocations.forEach((location, index) => {
-            try {
-              // Create custom marker icon
-              let icon;
-
-              if (location.isStart) {
-                // Special icon for start location
-                icon = L.divIcon({
-                  className: "custom-div-icon",
-                  html: `<div style="background-color:#38761d; color:white; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px; font-weight:bold;">S</div>`,
-                  iconSize: [30, 30],
-                  iconAnchor: [15, 15],
-                });
-              } else {
-                // Numbered icons for other stops
-                icon = L.divIcon({
-                  className: "custom-div-icon",
-                  html: `<div style="background-color:#2c88d9; color:white; width:25px; height:25px; border-radius:50%; text-align:center; line-height:25px; font-weight:bold;">${index}</div>`,
-                  iconSize: [25, 25],
-                  iconAnchor: [12, 12],
-                });
-              }
-
-              // Create marker with the icon
-              const marker = L.marker(location.coords, { icon }).addTo(
-                window.map
-              );
-
-              // Store marker reference on the location object for later use
-              location.marker = marker;
-
-              // Add popup with location info
-              marker.bindPopup(`
-                <strong>${location.name}</strong><br>
-                Area: ${location.area}<br>
-                Address: ${location.address}
-              `);
-
-              // Open popup for start location
-              if (location.isStart && marker.openPopup) {
-                marker.openPopup();
-              }
-            } catch (error) {
-              console.error("Error creating marker:", error);
-            }
+          // Create start icon for postman location
+          const startIcon = L.divIcon({
+            className: "custom-div-icon",
+            html: `<div style="background-color: #198754; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 3px solid white; font-size: 16px;">S</div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
           });
 
-          // Try to create a route with Leaflet Routing Machine
-          if (waypoints.length >= 2) {
-            try {
-              // Create the route
-              const routeControl = L.Routing.control({
-                waypoints: waypoints,
-                routeWhileDragging: false,
-                addWaypoints: false,
-                createMarker: function () {
-                  return null;
-                }, // No markers from routing machine
-                lineOptions: {
-                  styles: [{ color: "#0000FF", opacity: 0.7, weight: 5 }],
-                },
-                show: false, // Don't show the routing instructions
-              }).addTo(window.map);
+          // Store markers and selected locations
+          const markers = {};
+          const selectedLocations = {};
+          let waypoints = [];
 
-              // Store for later use
-              window.routeControl = routeControl;
+          // Add start location marker (with validation)
+          let startMarker;
+          try {
+            const startLocation = L.latLng(
+              postmanLocation[0],
+              postmanLocation[1]
+            );
+            startMarker = L.marker(startLocation, { icon: startIcon })
+              .addTo(map)
+              .bindPopup(
+                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Shivranjani Cross Road</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">All routes start here</div>'
+              );
 
-              // Add arrow decorators to the route
-              routeControl.on("routesfound", function (e) {
+            // Open postman popup by default
+            startMarker.openPopup();
+
+            // Add a circle around the starting location
+            L.circle(startLocation, {
+              color: "#198754",
+              fillColor: "#198754",
+              fillOpacity: 0.15,
+              radius: 200,
+              weight: 2,
+            }).addTo(map);
+
+            // Add start location to waypoints (with validation)
+            waypoints.push(startLocation);
+          } catch (error) {
+            console.error("Error creating start marker:", error);
+            // Create fallback marker at Ahmedabad center
+            const fallbackLocation = L.latLng(23.0225, 72.5714);
+            startMarker = L.marker(fallbackLocation, { icon: startIcon })
+              .addTo(map)
+              .bindPopup(
+                '<div style="text-align: center;"><b>Start Location (Postman)</b></div><hr style="margin: 5px 0;"><div>Iscon Center, Shivranjani Cross Road</div><div style="font-size: 0.9em; margin-top: 5px; color: #198754;">Fallback location</div>'
+              );
+
+            // Add fallback circle
+            L.circle(fallbackLocation, {
+              color: "#198754",
+              fillColor: "#198754",
+              fillOpacity: 0.15,
+              radius: 200,
+              weight: 2,
+            }).addTo(map);
+
+            // Add fallback location to waypoints
+            waypoints.push(fallbackLocation);
+          }
+
+          // Process route data
+          if (routeData && routeData.details && routeData.details.length > 0) {
+            // Process each delivery location from route data
+            routeData.details.forEach((leg, index) => {
+              const toName = leg.to;
+              // Extract customer name without parcel count
+              let customerName = toName.split(" (")[0].trim();
+
+              // Find the coordinates from customerAddresses if available
+              let coords = null;
+              let geocodingAttempted = false;
+
+              try {
+                if (customerName in customerAddresses) {
+                  coords = customerAddresses[customerName].coords;
+
+                  // Check if coordinates are valid
+                  const validCoords =
+                    coords &&
+                    coords.length === 2 &&
+                    !isNaN(coords[0]) &&
+                    !isNaN(coords[1]) &&
+                    Math.abs(coords[0]) <= 90 &&
+                    Math.abs(coords[1]) <= 180;
+
+                  if (!validCoords) {
+                    console.warn(
+                      `Invalid coordinates for ${customerName}: [${coords}], trying geocoding`
+                    );
+
+                    // Try geocoding with the generalized address
+                    const geocodeAddr =
+                      customerAddresses[customerName].geocodeAddress ||
+                      `${customerAddresses[customerName].area}, Ahmedabad, Gujarat, India`;
+
+                    // Use promise to attempt geocoding
+                    geocodingAttempted = true;
+                    geocodeAddress(geocodeAddr)
+                      .then((geocodedCoords) => {
+                        console.log(
+                          `Successfully geocoded ${customerName} to [${geocodedCoords}]`
+                        );
+                        coords = geocodedCoords;
+
+                        // Create marker and add to map with the geocoded coordinates
+                        addDeliveryMarker(customerName, leg, coords, index);
+                      })
+                      .catch((error) => {
+                        console.error(
+                          `Geocoding failed for ${customerName}: ${error.message}`
+                        );
+                        // Use Ahmedabad center as fallback
+                        coords = [23.0225, 72.5714];
+
+                        // Create marker with fallback coordinates
+                        addDeliveryMarker(customerName, leg, coords, index);
+                      });
+                  }
+                } else {
+                  // Find the exact case for the customer name in the coordinates object
+                  const exactCustomerName =
+                    Object.keys(areaCoordinates).find(
+                      (key) => key.toLowerCase() === customerName.toLowerCase()
+                    ) || customerName;
+
+                  // Get coordinates for this customer
+                  coords = areaCoordinates[exactCustomerName];
+
+                  // If still no coordinates found, use geocoding based on address
+                  if (!coords && leg.to_address) {
+                    console.log(
+                      `No coordinates found for ${customerName}, attempting to use address: ${leg.to_address}`
+                    );
+
+                    // Extract area name from address if possible
+                    const addressAreaMatch = leg.to_address.match(
+                      /\b(Satellite|Bopal|Vastrapur|Paldi|Thaltej|Navrangpura|Bodakdev|Gota|Maninagar|Chandkheda)\b/i
+                    );
+
+                    if (addressAreaMatch) {
+                      const extractedArea = addressAreaMatch[1];
+                      console.log(
+                        `Found area name in address: ${extractedArea}`
+                      );
+
+                      // Find the exact area name with proper case
+                      const exactAreaName = Object.keys(areaCoordinates).find(
+                        (key) =>
+                          key.toLowerCase() === extractedArea.toLowerCase()
+                      );
+
+                      if (exactAreaName) {
+                        coords = areaCoordinates[exactAreaName];
+                        console.log(
+                          `Using coordinates for area ${exactAreaName}: [${coords}]`
+                        );
+                      }
+                    }
+
+                    // If still no coordinates, try geocoding the address directly
+                    if (!coords) {
+                      // Simplify address for geocoding
+                      let geocodingAddress = leg.to_address;
+                      const areaMatch = leg.to_address.match(
+                        /\b([A-Za-z]+),\s*Ahmedabad/i
+                      );
+                      if (areaMatch) {
+                        geocodingAddress = `${areaMatch[1]}, Ahmedabad, Gujarat, India`;
+                      } else {
+                        geocodingAddress = "Ahmedabad, Gujarat, India";
+                      }
+
+                      // Use promise to attempt geocoding
+                      geocodingAttempted = true;
+                      geocodeAddress(geocodingAddress)
+                        .then((geocodedCoords) => {
+                          console.log(
+                            `Successfully geocoded address to [${geocodedCoords}]`
+                          );
+                          coords = geocodedCoords;
+
+                          // Create marker and add to map with the geocoded coordinates
+                          addDeliveryMarker(customerName, leg, coords, index);
+                        })
+                        .catch((error) => {
+                          console.error(`Geocoding failed: ${error.message}`);
+                          // Use Ahmedabad center as fallback
+                          coords = [23.0225, 72.5714];
+
+                          // Create marker with fallback coordinates
+                          addDeliveryMarker(customerName, leg, coords, index);
+                        });
+                    }
+                  }
+                }
+
+                // Helper function to add a delivery marker to the map
+                function addDeliveryMarker(customerName, leg, coords, index) {
+                  if (
+                    coords &&
+                    coords.length === 2 &&
+                    !isNaN(coords[0]) &&
+                    !isNaN(coords[1]) &&
+                    Math.abs(coords[0]) <= 90 &&
+                    Math.abs(coords[1]) <= 180
+                  ) {
+                    // Check if name contains parcel count information
+                    const toName = leg.to;
+                    const hasMultipleParcels = toName.includes("parcels");
+                    const parcelCount = hasMultipleParcels
+                      ? parseInt(toName.match(/\((\d+) parcels\)/)[1])
+                      : 1;
+
+                    // Create numbered icon
+                    const deliveryIcon = L.divIcon({
+                      className: "custom-div-icon",
+                      html: `<div style="background-color: #0d6efd; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;">${
+                        index + 1
+                      }</div>`,
+                      iconSize: [28, 28],
+                      iconAnchor: [14, 14],
+                      popupAnchor: [0, -10],
+                    });
+
+                    // Add popup content
+                    let popupContent = `<div style="text-align: center;"><b>${toName}</b></div>`;
+                    popupContent += `<hr style="margin: 5px 0;">`;
+                    popupContent += `<b>Address:</b> ${leg.to_address}<br>`;
+                    popupContent += `<b>Distance:</b> ${leg.distance}<br>`;
+                    popupContent += `<b>Duration:</b> ${leg.duration}`;
+
+                    // Create marker and add to map
+                    const marker = L.marker(coords, { icon: deliveryIcon })
+                      .addTo(map)
+                      .bindPopup(popupContent, { maxWidth: 300 });
+
+                    // Mark this location as selected and add to waypoints
+                    const areaName =
+                      customerName in customerAddresses
+                        ? customerAddresses[customerName].area
+                        : Object.keys(areaCoordinates).find(
+                            (key) =>
+                              key.toLowerCase() === customerName.toLowerCase()
+                          );
+
+                    if (areaName) selectedLocations[areaName] = true;
+
+                    // Validate coordinates before creating the waypoint
+                    if (
+                      coords &&
+                      coords.length === 2 &&
+                      !isNaN(coords[0]) &&
+                      !isNaN(coords[1]) &&
+                      Math.abs(coords[0]) <= 90 &&
+                      Math.abs(coords[1]) <= 180
+                    ) {
+                      waypoints.push(L.latLng(coords[0], coords[1]));
+                    } else {
+                      console.error(
+                        `Invalid coordinates for ${customerName}: [${coords}], skipping waypoint`
+                      );
+                    }
+
+                    // Store marker reference
+                    markers[areaName] = {
+                      marker: marker,
+                      coords: coords,
+                      name: toName,
+                      address: leg.to_address,
+                      index: index + 1,
+                    };
+                  }
+                }
+              } catch (error) {
+                console.error(
+                  `Error processing location for ${customerName}:`,
+                  error
+                );
+              }
+
+              // If not using geocoding (which is async), add the marker directly
+              if (!geocodingAttempted && coords) {
+                addDeliveryMarker(customerName, leg, coords, index);
+              }
+            });
+
+            // Create the optimized route using Leaflet Routing Machine
+            if (waypoints.length >= 2) {
+              try {
+                // Only use Routing Machine if available
+                if (typeof L.Routing !== "undefined") {
+                  const routingControl = L.Routing.control({
+                    waypoints: waypoints,
+                    routeWhileDragging: false,
+                    showAlternatives: false,
+                    fitSelectedRoutes: false,
+                    show: false, // Don't show the instructions panel
+                    lineOptions: {
+                      styles: [
+                        { color: "black", opacity: 0.15, weight: 7 },
+                        { color: "#0d6efd", opacity: 0.8, weight: 5 },
+                      ],
+                      extendToWaypoints: true,
+                      missingRouteTolerance: 100,
+                    },
+                    // Use OSRM as router if available
+                    router: L.Routing.osrm
+                      ? L.Routing.osrm({
+                          serviceUrl:
+                            "https://router.project-osrm.org/route/v1",
+                          profile: "driving",
+                        })
+                      : undefined,
+                    createMarker: function () {
+                      // Don't create default markers, we have our own
+                      return null;
+                    },
+                  }).addTo(map);
+
+                  // Add direction arrows to the routing machine route
+                  routingControl.on("routesfound", function (e) {
+                    const routes = e.routes;
+                    const summary = routes[0].summary;
+
+                    // Create simplified version of the route for arrows
+                    if (typeof L.polylineDecorator !== "undefined") {
+                      try {
+                        const routeCoords = routes[0].coordinates;
+                        const simplifiedRoute = L.polyline(routeCoords, {
+                          color: "#0d6efd",
+                          opacity: 0,
+                          weight: 5,
+                        }).addTo(map);
+
+                        const arrowDecorator = L.polylineDecorator(
+                          simplifiedRoute,
+                          {
+                            patterns: [
+                              {
+                                offset: "10%",
+                                repeat: "25%",
+                                symbol: L.Symbol.arrowHead({
+                                  pixelSize: 12,
+                                  headAngle: 45,
+                                  polygon: true,
+                                  pathOptions: {
+                                    color: "#0d6efd",
+                                    fillColor: "#0d6efd",
+                                    fillOpacity: 1,
+                                    weight: 0,
+                                  },
+                                }),
+                              },
+                            ],
+                          }
+                        ).addTo(map);
+                      } catch (error) {
+                        console.error(
+                          "Error adding direction arrows to routing machine path:",
+                          error
+                        );
+                      }
+                    }
+                  });
+
+                  // Hide the routing control container
+                  setTimeout(() => {
+                    const container = document.querySelector(
+                      ".leaflet-routing-container"
+                    );
+                    if (container) {
+                      container.style.display = "none";
+                    }
+                  }, 100);
+                } else {
+                  // Fallback to simple polyline if Routing Machine isn't available
+                  const routeLine = L.polyline(waypoints, {
+                    color: "#0d6efd",
+                    weight: 4,
+                    opacity: 0.8,
+                  }).addTo(map);
+
+                  // Add directional arrows to the fallback polyline
+                  if (typeof L.polylineDecorator !== "undefined") {
+                    try {
+                      const arrowDecorator = L.polylineDecorator(routeLine, {
+                        patterns: [
+                          {
+                            offset: "10%",
+                            repeat: "25%",
+                            symbol: L.Symbol.arrowHead({
+                              pixelSize: 12,
+                              headAngle: 45,
+                              polygon: true,
+                              pathOptions: {
+                                color: "#0d6efd",
+                                fillColor: "#0d6efd",
+                                fillOpacity: 1,
+                                weight: 0,
+                              },
+                            }),
+                          },
+                        ],
+                      }).addTo(map);
+                    } catch (error) {
+                      console.error("Error creating direction arrows:", error);
+                    }
+                  }
+                }
+
+                // Fit map to show all delivery points with smaller padding
                 try {
-                  const routes = e.routes;
+                  if (waypoints.length >= 2) {
+                    const bounds = L.latLngBounds(waypoints);
+                    map.fitBounds(bounds.pad(0.1));
+                  } else if (waypoints.length === 1) {
+                    // If there's only one waypoint, center on it
+                    map.setView(waypoints[0], 15);
+                  } else {
+                    // If no valid waypoints, center on Ahmedabad
+                    map.setView([23.0225, 72.5714], 12);
+                  }
+                } catch (error) {
+                  console.error("Error fitting bounds to waypoints:", error);
+                  // Fallback to Ahmedabad center
+                  map.setView([23.0225, 72.5714], 12);
+                }
 
-                  if (routes && routes.length > 0) {
-                    // Get the route coordinates
-                    const routeCoordinates = routes[0].coordinates;
+                // Add directional arrows to the route using Polyline Decorator
+                if (typeof L.polylineDecorator !== "undefined") {
+                  try {
+                    // Create simple polyline for the arrows
+                    const routeLine = L.polyline(waypoints, {
+                      color: "#0d6efd",
+                      weight: 4,
+                      opacity: 0, // Make the base line invisible
+                    }).addTo(map);
 
-                    // Create a polyline from the coordinates
-                    const polyline = L.polyline(routeCoordinates);
-
-                    // Add arrow decorators
-                    const decorator = L.polylineDecorator(polyline, {
+                    // Add arrows to the route
+                    const arrowDecorator = L.polylineDecorator(routeLine, {
                       patterns: [
                         {
-                          offset: 25,
-                          repeat: 100,
+                          offset: "10%",
+                          repeat: "25%",
                           symbol: L.Symbol.arrowHead({
-                            pixelSize: 15,
-                            polygon: false,
+                            pixelSize: 12,
+                            headAngle: 45,
+                            polygon: true,
                             pathOptions: {
-                              stroke: true,
-                              color: "#22a",
-                              weight: 3,
+                              color: "#0d6efd",
+                              fillColor: "#0d6efd",
+                              fillOpacity: 1,
+                              weight: 0,
                             },
                           }),
                         },
                       ],
-                    }).addTo(window.map);
-
-                    // Store for cleanup
-                    window.routeDecorator = decorator;
+                    }).addTo(map);
+                  } catch (error) {
+                    console.error("Error creating direction arrows:", error);
                   }
-                } catch (error) {
-                  console.error("Error adding route decorators:", error);
                 }
-              });
-            } catch (error) {
-              console.error("Error creating route:", error);
-              // Fallback to simple polyline
-              try {
-                if (waypoints.length > 0) {
-                  L.polyline(waypoints, { color: "blue" }).addTo(window.map);
-                }
-              } catch (innerError) {
-                console.error("Error creating fallback polyline:", innerError);
-              }
-            }
-          } else {
-            // Fallback to simple polyline if not enough waypoints
-            console.warn(
-              "Not enough valid waypoints for routing, need at least 2, got:",
-              waypoints.length
-            );
-            try {
-              if (waypoints.length > 0) {
-                L.polyline(waypoints, { color: "blue" }).addTo(window.map);
-              }
-            } catch (error) {
-              console.error("Error creating fallback polyline:", error);
-            }
-          }
 
-          // Fit map bounds to include all waypoints
-          if (waypoints.length > 0) {
-            try {
-              window.map.fitBounds(L.latLngBounds(waypoints).pad(0.2));
-            } catch (error) {
-              console.error("Error fitting bounds:", error);
-              // Fallback to center on first waypoint
-              try {
-                if (waypoints[0]) {
-                  window.map.setView(waypoints[0], 12);
-                }
-              } catch (innerError) {
-                console.error("Error with fallback centering:", innerError);
-              }
-            }
-          }
+                // Create a control to show route summary
+                const summaryControl = L.control({ position: "bottomright" });
+                summaryControl.onAdd = function () {
+                  const div = L.DomUtil.create("div", "route-summary");
+                  div.innerHTML = `
+                    <div style="background-color: white; padding: 8px; border-radius: 5px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); max-width: 250px;">
+                      <div style="font-weight: bold; margin-bottom: 5px; color: #0d6efd;">Delivery Route Summary</div>
+                      <div><b>Total Distance:</b> ${
+                        routeData.total_distance
+                      }</div>
+                      <div><b>Delivery Stops:</b> ${waypoints.length - 1}</div>
+                      <div style="font-size: 0.9em; margin-top: 5px; color: #666;">Numbers show delivery order</div>
+                    </div>
+                  `;
+                  return div;
+                };
+                summaryControl.addTo(map);
 
-          // Add event handlers for the reset and return buttons
-          $("#resetRouteBtn")
-            .off("click")
-            .on("click", function () {
-              $("#routeResult").hide();
-              $(".customer-checkbox").prop("checked", false);
-              $("#selectAllCustomers").prop("checked", false);
-            });
+                // Add a control button to go back to start location
+                const backToStartControl = L.control({ position: "topleft" });
+                backToStartControl.onAdd = function () {
+                  const div = L.DomUtil.create("div", "back-to-start-control");
+                  div.innerHTML = `
+                    <button id="back-to-start-btn" class="btn btn-success" 
+                      style="padding: 6px 12px; font-size: 14px; margin: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                      <i class="bi bi-geo-alt-fill"></i> Go to Starting Point
+                    </button>
+                  `;
+                  return div;
+                };
+                backToStartControl.addTo(map);
 
-          $("#returnToStart")
-            .off("click")
-            .on("click", function () {
-              // Fly to the start location
-              if (postmanLocation && window.map) {
-                try {
-                  window.map.flyTo(postmanLocation, 15);
-
-                  // Find and open the start marker popup
-                  validLocations.forEach((location) => {
-                    if (
-                      location.isStart &&
-                      location.marker &&
-                      typeof location.marker.openPopup === "function"
-                    ) {
-                      location.marker.openPopup();
+                // Function to return to starting point (defined within initRouteMap for proper scope)
+                function returnToStart() {
+                  try {
+                    if (startMarker && startMarker._latlng) {
+                      map.flyTo(startMarker._latlng, 15);
+                      if (startMarker.openPopup) {
+                        startMarker.openPopup();
+                      }
+                    } else {
+                      console.warn(
+                        "Start marker not properly initialized, flying to default center"
+                      );
+                      map.flyTo([23.0225, 72.5714], 15);
                     }
-                  });
-                } catch (error) {
-                  console.error("Error returning to start:", error);
-                }
-              }
-            });
-        }
-
-        // Handle chat minimize/maximize
-        $("#chatMinimize").click(function () {
-          const chatBody = $("#chatBody");
-          if (chatBody.is(":visible")) {
-            chatBody.hide();
-            $(this).html('<i class="bi bi-plus-lg"></i>');
-          } else {
-            chatBody.show();
-            $(this).html('<i class="bi bi-dash-lg"></i>');
-          }
-        });
-
-        // Handle chat form submission
-        $("#chatForm").submit(function (e) {
-          e.preventDefault();
-
-          const userMessage = $("#chatInput").val();
-          if (!userMessage.trim()) return;
-
-          // Add user message to chat
-          $("#chatMessages").append(`
-            <div class="alert alert-secondary text-end mb-2">
-              <i class="bi bi-person-fill me-2"></i> ${userMessage}
-            </div>
-          `);
-
-          // Clear input
-          $("#chatInput").val("");
-
-          // Scroll to bottom
-          $("#chatMessages").scrollTop($("#chatMessages")[0].scrollHeight);
-
-          // Add loading indicator
-          const loadingId = Date.now();
-          $("#chatMessages").append(`
-            <div id="loading-${loadingId}" class="alert alert-light text-center mb-2">
-              <div class="spinner-border spinner-border-sm text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              <span class="ms-2">Thinking...</span>
-            </div>
-          `);
-
-          // Send to backend
-          $.ajax({
-            url: "/chat",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({ message: userMessage }),
-            success: function (response) {
-              // Remove loading indicator
-              $(`#loading-${loadingId}`).remove();
-
-              // Add assistant response
-              $("#chatMessages").append(`
-                <div class="alert alert-info mb-2">
-                  <i class="bi bi-robot me-2"></i> ${response.response}
-                </div>
-              `);
-
-              // Scroll to bottom
-              $("#chatMessages").scrollTop($("#chatMessages")[0].scrollHeight);
-            },
-            error: function (xhr) {
-              // Remove loading indicator
-              $(`#loading-${loadingId}`).remove();
-
-              // Add error message
-              let errorMessage =
-                "Sorry, I couldn't process your request. Please try again.";
-              if (xhr.responseJSON && xhr.responseJSON.error) {
-                errorMessage = xhr.responseJSON.error;
-              }
-
-              $("#chatMessages").append(`
-                <div class="alert alert-danger mb-2">
-                  <i class="bi bi-exclamation-triangle-fill me-2"></i> ${errorMessage}
-                </div>
-              `);
-
-              // Scroll to bottom
-              $("#chatMessages").scrollTop($("#chatMessages")[0].scrollHeight);
-            },
-          });
-        });
-
-        // Example questions
-        const exampleQuestions = [
-          "What are today's deliveries?",
-          "What's the optimal time to deliver to Aditya?",
-          "Explain the current optimized route",
-          "Which areas have deliveries today?",
-          "Tell me about Kabir's delivery preferences",
-        ];
-
-        // Add example question buttons
-        const examplesContainer = $(
-          '<div class="d-flex flex-wrap mt-2 gap-1"></div>'
-        );
-        exampleQuestions.forEach((question) => {
-          const btn = $(
-            `<button class="btn btn-sm btn-outline-secondary example-question">${question}</button>`
-          );
-          examplesContainer.append(btn);
-        });
-        $("#chatForm").after(examplesContainer);
-
-        // Handle example question clicks
-        $(".example-question").click(function () {
-          const question = $(this).text();
-          $("#chatInput").val(question);
-          $("#chatForm").submit();
-        });
-
-        // Handle schedule checkbox changes
-        $(".schedule-checkbox").change(function () {
-          updateScheduleButtonVisibility();
-        });
-
-        // Handle "Schedule All for Today" buttons
-        $(".schedule-for-today-btn").click(function (e) {
-          e.preventDefault();
-
-          const orderIds = $(this).data("group-orders");
-          const customerName = $(this).data("group-name");
-
-          // Confirm scheduling
-          if (
-            confirm(
-              `Schedule all orders for ${customerName} for today (${currentDay})?`
-            )
-          ) {
-            scheduleOrdersForToday(orderIds);
-          }
-        });
-
-        // Handle "Schedule Selected Orders" button
-        $("#scheduleSelectedBtn").click(function (e) {
-          e.preventDefault();
-
-          const selectedOrderIds = [];
-          $(".schedule-checkbox:checked").each(function () {
-            selectedOrderIds.push($(this).val());
-          });
-
-          if (selectedOrderIds.length === 0) {
-            alert("No orders selected for scheduling.");
-            return;
-          }
-
-          if (
-            confirm(
-              `Schedule ${selectedOrderIds.length} selected orders for today?`
-            )
-          ) {
-            scheduleOrdersForToday(selectedOrderIds);
-          }
-        });
-
-        // Function to update schedule button visibility
-        function updateScheduleButtonVisibility() {
-          const checkedCount = $(".schedule-checkbox:checked").length;
-          if (checkedCount > 0) {
-            $("#scheduleSelectedBtn")
-              .show()
-              .text(`Schedule ${checkedCount} Selected Orders`);
-          } else {
-            $("#scheduleSelectedBtn").hide();
-          }
-        }
-
-        // Function to schedule orders for today
-        function scheduleOrdersForToday(orderIds) {
-          // Validate order IDs
-          if (!orderIds || (Array.isArray(orderIds) && orderIds.length === 0)) {
-            alert("No orders selected for scheduling.");
-            return;
-          }
-
-          // Show loading indicator
-          $("#routeLoadingIndicator").show();
-
-          // Prepare the data
-          const formData = new FormData();
-
-          // Add each order ID
-          try {
-            if (Array.isArray(orderIds)) {
-              orderIds.forEach((id) => {
-                if (id) formData.append("selected_orders[]", id);
-              });
-            } else {
-              formData.append("selected_orders[]", orderIds);
-            }
-          } catch (error) {
-            console.error("Error preparing form data:", error);
-            $("#routeLoadingIndicator").hide();
-            alert("Error preparing order data. Please try again.");
-            return;
-          }
-
-          // Send the AJAX request
-          $.ajax({
-            url: "/schedule_for_today",
-            type: "POST",
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function (response) {
-              $("#routeLoadingIndicator").hide();
-
-              if (response && response.success) {
-                // Show success message
-                alert(response.message || "Orders scheduled successfully");
-
-                // Scroll to the route optimization section
-                try {
-                  $("html, body").animate(
-                    {
-                      scrollTop: $("#routeOptimizationForm").offset().top - 50,
-                    },
-                    500
-                  );
-                } catch (error) {
-                  console.error(
-                    "Error scrolling to route optimization form:",
-                    error
-                  );
-                }
-
-                // Validate optimized route before storing
-                if (
-                  response.optimized_route &&
-                  typeof response.optimized_route === "object" &&
-                  response.optimized_route.route &&
-                  Array.isArray(response.optimized_route.route) &&
-                  response.optimized_route.route.length > 0
-                ) {
-                  // Store route data for persistence across page reloads
-                  try {
-                    localStorage.setItem(
-                      "scheduledRoute",
-                      JSON.stringify(response.optimized_route)
-                    );
-                    localStorage.setItem("scheduleSuccess", "true");
-                  } catch (storageError) {
-                    console.error(
-                      "Error storing route in localStorage:",
-                      storageError
-                    );
+                  } catch (error) {
+                    console.error("Error in returnToStart function:", error);
+                    // Fallback to Ahmedabad center
+                    map.flyTo([23.0225, 72.5714], 15);
                   }
+                }
 
-                  // Update the route optimization view with the new route
-                  try {
-                    displayOptimizedRoute(response.optimized_route);
-                  } catch (displayError) {
-                    console.error(
-                      "Error displaying optimized route:",
-                      displayError
-                    );
+                // Add event listener for the back to start button
+                setTimeout(() => {
+                  const backToStartBtn =
+                    document.getElementById("back-to-start-btn");
+                  if (backToStartBtn) {
+                    backToStartBtn.addEventListener("click", function () {
+                      returnToStart();
+                    });
                   }
-                } else {
-                  console.error(
-                    "Invalid optimized route in response:",
-                    response.optimized_route
-                  );
-                }
-
-                // Uncheck all schedule checkboxes
-                $(".schedule-checkbox").prop("checked", false);
-                updateScheduleButtonVisibility();
-
-                // Reload the page to reflect the updated orders
-                setTimeout(function () {
-                  location.reload();
-                }, 2000);
-              } else {
-                let errorMsg =
-                  "Unknown error occurred while scheduling orders.";
-                if (response && response.message) {
-                  errorMsg = response.message;
-                }
-                alert("Error: " + errorMsg);
-              }
-            },
-            error: function (xhr) {
-              $("#routeLoadingIndicator").hide();
-
-              let errorMessage = "An error occurred while scheduling orders.";
-              try {
-                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
-                  errorMessage = xhr.responseJSON.message;
-                }
+                }, 100);
               } catch (error) {
-                console.error("Error parsing error response:", error);
+                console.error("Error creating route:", error);
+
+                // Fallback to simple polyline if Routing Machine fails
+                const routeLine = L.polyline(waypoints, {
+                  color: "#0d6efd",
+                  weight: 4,
+                  opacity: 0.8,
+                }).addTo(map);
+
+                // Add directional arrows to the fallback polyline
+                if (typeof L.polylineDecorator !== "undefined") {
+                  try {
+                    const arrowDecorator = L.polylineDecorator(routeLine, {
+                      patterns: [
+                        {
+                          offset: "10%",
+                          repeat: "25%",
+                          symbol: L.Symbol.arrowHead({
+                            pixelSize: 12,
+                            headAngle: 45,
+                            polygon: true,
+                            pathOptions: {
+                              color: "#0d6efd",
+                              fillColor: "#0d6efd",
+                              fillOpacity: 1,
+                              weight: 0,
+                            },
+                          }),
+                        },
+                      ],
+                    }).addTo(map);
+                  } catch (error) {
+                    console.error("Error creating direction arrows:", error);
+                  }
+                }
+
+                // Fit map to show all delivery points with smaller padding
+                try {
+                  if (waypoints.length >= 2) {
+                    const bounds = L.latLngBounds(waypoints);
+                    map.fitBounds(bounds.pad(0.1));
+                  } else if (waypoints.length === 1) {
+                    // If there's only one waypoint, center on it
+                    map.setView(waypoints[0], 15);
+                  } else {
+                    // If no valid waypoints, center on Ahmedabad
+                    map.setView([23.0225, 72.5714], 12);
+                  }
+                } catch (error) {
+                  console.error("Error fitting bounds to waypoints:", error);
+                  // Fallback to Ahmedabad center
+                  map.setView([23.0225, 72.5714], 12);
+                }
+              }
+            } else {
+              // If no route data provided, show interactive map with selectable locations
+
+              // Add markers for all available delivery areas
+              Object.entries(areaCoordinates).forEach(([areaName, coords]) => {
+                // Skip the start location as we've already added it
+                if (areaName === "Start Location (Postman)") return;
+
+                // Find customers in this area to include in the popup
+                const customersInArea = Object.entries(customerAddresses)
+                  .filter(([_, data]) => data.area === areaName)
+                  .map(([name, _]) => name);
+
+                const areaIcon = L.divIcon({
+                  className: "custom-div-icon",
+                  html: `<div style="background-color: #6c757d; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;"></div>`,
+                  iconSize: [24, 24],
+                  iconAnchor: [12, 12],
+                });
+
+                // Create marker with popup containing checkbox for selection
+                const marker = L.marker(coords, { icon: areaIcon }).addTo(map);
+
+                const popupContent = `
+                  <div style="text-align: center;">
+                    <b>${areaName}</b>
+                    ${
+                      customersInArea.length > 0
+                        ? `<div class="text-muted small mt-1">${customersInArea.join(
+                            ", "
+                          )}</div>`
+                        : ""
+                    }
+                    <div class="form-check mt-2">
+                      <input class="form-check-input" type="checkbox" id="select-${areaName}" 
+                        onchange="toggleLocation('${areaName}')">
+                      <label class="form-check-label" for="select-${areaName}">
+                        Add to delivery route
+                      </label>
+                    </div>
+                  </div>
+                `;
+
+                marker.bindPopup(popupContent);
+
+                // Store marker reference
+                markers[areaName] = {
+                  marker: marker,
+                  coords: coords,
+                  name: areaName,
+                  selected: false,
+                  customers: customersInArea,
+                };
+              });
+
+              // Add a control button to optimize route
+              const optimizeControl = L.control({ position: "topright" });
+              optimizeControl.onAdd = function () {
+                const div = L.DomUtil.create("div", "optimize-control");
+                div.innerHTML = `
+                  <button id="optimize-route-btn" class="btn btn-primary" 
+                    style="padding: 6px 12px; font-size: 14px; margin: 5px;">
+                    Optimize Route
+                  </button>
+                `;
+                return div;
+              };
+              optimizeControl.addTo(map);
+
+              // Add a control button to go back to start location
+              const backToStartControl = L.control({ position: "topleft" });
+              backToStartControl.onAdd = function () {
+                const div = L.DomUtil.create("div", "back-to-start-control");
+                div.innerHTML = `
+                  <button id="back-to-start-btn" class="btn btn-success" 
+                    style="padding: 6px 12px; font-size: 14px; margin: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                    <i class="bi bi-geo-alt-fill"></i> Go to Starting Point
+                  </button>
+                `;
+                return div;
+              };
+              backToStartControl.addTo(map);
+
+              // Add event listener for the back to start button
+              setTimeout(() => {
+                const backToStartBtn =
+                  document.getElementById("back-to-start-btn");
+                if (backToStartBtn) {
+                  backToStartBtn.addEventListener("click", function () {
+                    returnToStart();
+                  });
+                }
+              }, 100);
+
+              // Define global function to toggle location selection
+              window.toggleLocation = function (areaName) {
+                const locationInfo = markers[areaName];
+                const checkbox = document.getElementById(`select-${areaName}`);
+
+                if (checkbox && checkbox.checked) {
+                  // Select this location
+                  locationInfo.selected = true;
+
+                  // Change icon to show selection
+                  const selectedIcon = L.divIcon({
+                    className: "custom-div-icon",
+                    html: `<div style="background-color: #dc3545; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;"></div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  });
+
+                  locationInfo.marker.setIcon(selectedIcon);
+                } else {
+                  // Deselect this location
+                  locationInfo.selected = false;
+
+                  // Change icon back to default
+                  const defaultIcon = L.divIcon({
+                    className: "custom-div-icon",
+                    html: `<div style="background-color: #6c757d; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;"></div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  });
+
+                  locationInfo.marker.setIcon(defaultIcon);
+                }
+
+                updateSelectedCount();
+              };
+
+              // Helper function to update selected count
+              function updateSelectedCount() {
+                const selectedCount = Object.values(markers).filter(
+                  (m) => m.selected
+                ).length;
+                const btn = document.getElementById("optimize-route-btn");
+                if (btn) {
+                  btn.textContent = `Optimize Route (${selectedCount} selected)`;
+                  btn.disabled = selectedCount === 0;
+                }
               }
 
-              alert("Error: " + errorMessage);
-            },
-          });
+              // Initialize state
+              updateSelectedCount();
+
+              // Preselect at least one location for demo purposes
+              if (
+                Object.values(markers).filter((m) => m.selected).length === 0
+              ) {
+                // Default select Satellite area for demonstration
+                const defaultArea = "Satellite";
+                if (markers[defaultArea]) {
+                  markers[defaultArea].selected = true;
+                  const checkbox = document.getElementById(
+                    `select-${defaultArea}`
+                  );
+                  if (checkbox) checkbox.checked = true;
+
+                  // Update marker appearance
+                  const selectedIcon = L.divIcon({
+                    className: "custom-div-icon",
+                    html: `<div style="background-color: #dc3545; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 2px solid white;"></div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  });
+
+                  markers[defaultArea].marker.setIcon(selectedIcon);
+                  updateSelectedCount();
+                }
+              }
+
+              // Add event listener for optimize button
+              setTimeout(() => {
+                const optimizeBtn =
+                  document.getElementById("optimize-route-btn");
+                if (optimizeBtn) {
+                  optimizeBtn.addEventListener("click", function () {
+                    const selectedLocations = Object.entries(markers)
+                      .filter(([name, info]) => info.selected)
+                      .map(([name, info]) => name);
+
+                    if (selectedLocations.length === 0) {
+                      alert("Please select at least one delivery location");
+                      return;
+                    }
+
+                    // Show loading indicator
+                    $("#routeLoadingIndicator").show();
+                    $("#routeResult").hide();
+
+                    // Create form data for route optimization
+                    const formData = new FormData();
+
+                    // Get customers from selected areas instead of just area names
+                    let customersToOptimize = [];
+                    selectedLocations.forEach((areaName) => {
+                      const areaInfo = markers[areaName];
+                      if (
+                        areaInfo &&
+                        areaInfo.customers &&
+                        areaInfo.customers.length > 0
+                      ) {
+                        // Add all customers from this area
+                        customersToOptimize = customersToOptimize.concat(
+                          areaInfo.customers
+                        );
+                      } else {
+                        // If no specific customers found, use the area name
+                        customersToOptimize.push(areaName);
+                      }
+                    });
+
+                    // Add customers to form data
+                    customersToOptimize.forEach((customer) => {
+                      formData.append("selected_customers[]", customer);
+                    });
+
+                    console.log(
+                      "Optimizing route for customers:",
+                      customersToOptimize
+                    );
+
+                    // Call the server to optimize route
+                    $.ajax({
+                      url: "/optimize_route",
+                      type: "POST",
+                      data: formData,
+                      processData: false,
+                      contentType: false,
+                      success: function (response) {
+                        // Hide loading indicator
+                        $("#routeLoadingIndicator").hide();
+
+                        // Redraw map with optimized route
+                        initRouteMap(response);
+
+                        // Update route summary in the UI
+                        $("#routeSummary").html(
+                          `Optimal delivery order: <strong>${response.route.join(
+                            " → "
+                          )}</strong>`
+                        );
+                        $("#totalDistance").html(
+                          `Total distance: <strong>${response.total_distance}</strong>`
+                        );
+
+                        // Show the result section
+                        $("#routeResult").show();
+                      },
+                      error: function (error) {
+                        // Hide loading indicator and show error
+                        $("#routeLoadingIndicator").hide();
+                        alert("Failed to optimize route. Please try again.");
+                        console.error("Error optimizing route:", error);
+                      },
+                    });
+                  });
+                }
+              }, 100);
+            }
+          }
         }
+      });
+
+      // Handle chat minimize/maximize
+      $("#chatMinimize").click(function () {
+        const chatBody = $("#chatBody");
+        if (chatBody.is(":visible")) {
+          chatBody.hide();
+          $(this).html('<i class="bi bi-plus-lg"></i>');
+        } else {
+          chatBody.show();
+          $(this).html('<i class="bi bi-dash-lg"></i>');
+        }
+      });
+
+      // Handle chat form submission
+      $("#chatForm").submit(function (e) {
+        e.preventDefault();
+
+        const userMessage = $("#chatInput").val();
+        if (!userMessage.trim()) return;
+
+        // Add user message to chat
+        $("#chatMessages").append(`
+          <div class="alert alert-secondary text-end mb-2">
+            <i class="bi bi-person-fill me-2"></i> ${userMessage}
+          </div>
+        `);
+
+        // Clear input
+        $("#chatInput").val("");
+
+        // Scroll to bottom
+        $("#chatMessages").scrollTop($("#chatMessages")[0].scrollHeight);
+
+        // Add loading indicator
+        const loadingId = Date.now();
+        $("#chatMessages").append(`
+          <div id="loading-${loadingId}" class="alert alert-light text-center mb-2">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="ms-2">Thinking...</span>
+          </div>
+        `);
+
+        // Send to backend
+        $.ajax({
+          url: "/chat",
+          type: "POST",
+          contentType: "application/json",
+          data: JSON.stringify({ message: userMessage }),
+          success: function (response) {
+            // Remove loading indicator
+            $(`#loading-${loadingId}`).remove();
+
+            // Add assistant response
+            $("#chatMessages").append(`
+              <div class="alert alert-info mb-2">
+                <i class="bi bi-robot me-2"></i> ${response.response}
+              </div>
+            `);
+
+            // Scroll to bottom
+            $("#chatMessages").scrollTop($("#chatMessages")[0].scrollHeight);
+          },
+          error: function (xhr) {
+            // Remove loading indicator
+            $(`#loading-${loadingId}`).remove();
+
+            // Add error message
+            let errorMessage =
+              "Sorry, I couldn't process your request. Please try again.";
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+              errorMessage = xhr.responseJSON.error;
+            }
+
+            $("#chatMessages").append(`
+              <div class="alert alert-danger mb-2">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> ${errorMessage}
+              </div>
+            `);
+
+            // Scroll to bottom
+            $("#chatMessages").scrollTop($("#chatMessages")[0].scrollHeight);
+          },
+        });
+      });
+
+      // Example questions
+      const exampleQuestions = [
+        "What are today's deliveries?",
+        "What's the optimal time to deliver to Aditya?",
+        "Explain the current optimized route",
+        "Which areas have deliveries today?",
+        "Tell me about Kabir's delivery preferences",
+      ];
+
+      // Add example question buttons
+      const examplesContainer = $(
+        '<div class="d-flex flex-wrap mt-2 gap-1"></div>'
+      );
+      exampleQuestions.forEach((question) => {
+        const btn = $(
+          `<button class="btn btn-sm btn-outline-secondary example-question">${question}</button>`
+        );
+        examplesContainer.append(btn);
+      });
+      $("#chatForm").after(examplesContainer);
+
+      // Handle example question clicks
+      $(".example-question").click(function () {
+        const question = $(this).text();
+        $("#chatInput").val(question);
+        $("#chatForm").submit();
       });
     </script>
   </body>
