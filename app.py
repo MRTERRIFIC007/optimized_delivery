@@ -206,6 +206,59 @@ def geocode():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/schedule_for_today', methods=['POST'])
+def schedule_for_today():
+    """Schedule selected pending orders for today and update the optimized route"""
+    # Get the selected order IDs from the form
+    selected_order_ids = request.form.getlist('selected_orders[]')
+    
+    if not selected_order_ids or len(selected_order_ids) == 0:
+        return jsonify({
+            'success': False, 
+            'message': 'No orders selected'
+        }), 400
+    
+    # Convert to integers
+    selected_order_ids = [int(order_id) for order_id in selected_order_ids]
+    
+    # Get all pending orders
+    pending_orders = predictor.get_pending_orders()
+    
+    # Filter to only include selected orders
+    scheduled_orders = [order for order in pending_orders if order.get('order_id', order.get('id')) in selected_order_ids]
+    
+    # Verify we found all the selected orders
+    if len(scheduled_orders) != len(selected_order_ids):
+        return jsonify({
+            'success': False,
+            'message': 'Some selected orders were not found in pending orders'
+        }), 400
+    
+    # Update the orders to be scheduled for today
+    for order in scheduled_orders:
+        # Set the delivery day to today
+        today = datetime.now().strftime('%A')
+        order['delivery_day'] = today
+        
+        # Update the order in the predictor
+        predictor.update_order(order.get('order_id', order.get('id')), {'delivery_day': today})
+    
+    # Extract customer names for route optimization
+    customer_names = [order['name'] for order in scheduled_orders]
+    
+    # Optimize the delivery route for these customers
+    optimal_route = predictor.optimize_delivery_route(customer_names)
+    
+    # Store the optimized route in session for chatbot context
+    session['last_route_optimization'] = optimal_route
+    
+    # Return success response with optimized route
+    return jsonify({
+        'success': True,
+        'message': f'Successfully scheduled {len(scheduled_orders)} orders for today',
+        'optimized_route': optimal_route
+    })
+
 if __name__ == '__main__':
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Delivery Prediction System')

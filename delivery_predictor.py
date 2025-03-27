@@ -439,32 +439,59 @@ class DeliveryPredictor:
     
     def add_order(self, name, delivery_day, package_size=None):
         """Add a new order to the pending stack"""
-        # Use the fixed area for this customer
-        area = self.customer_areas.get(name, "Unknown")
+        # Validate inputs
+        if name not in self.customer_areas:
+            raise ValueError(f"Customer {name} not found in customer list")
         
-        if package_size is None:
+        if not delivery_day:
+            raise ValueError("Delivery day is required")
+        
+        if not package_size:
+            # Randomly select a package size if not provided
             package_size = random.choice(['Small', 'Medium', 'Large'])
-            
-        order_id = max([o['order_id'] for o in self.pending_orders]) + 1 if self.pending_orders else 10000
         
+        # Get the area for the customer (fixed)
+        area = self.customer_areas[name]
+        address = self.customer_addresses.get(name, "Unknown address")
+        
+        # Get next order ID
+        try:
+            next_id = max([order.get('order_id', order.get('id', 0)) for order in self.pending_orders]) + 1
+        except (ValueError, AttributeError):
+            next_id = 1
+        
+        # Create the order
         order = {
-            'order_id': order_id,
+            'order_id': next_id,
             'name': name,
-            'delivery_day': delivery_day,
             'area': area,
-            'address': self.customer_addresses.get(name, "Address not available"),
+            'address': address,
+            'delivery_day': delivery_day,
             'package_size': package_size,
-            'status': 'Pending',
             'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
+        # Add to pending orders
         self.pending_orders.append(order)
         
-        # Update JSON file
-        with open('pending_orders.json', 'w') as f:
-            json.dump(self.pending_orders, f, indent=2)
+        return next_id
+    
+    def update_order(self, order_id, update_data):
+        """Update an existing order in the pending stack"""
+        if not hasattr(self, 'pending_orders'):
+            return False
             
-        return order_id
+        # Find the order by ID
+        for i, order in enumerate(self.pending_orders):
+            current_id = order.get('order_id', order.get('id'))
+            if current_id == order_id:
+                # Update the order with the new data
+                for key, value in update_data.items():
+                    self.pending_orders[i][key] = value
+                return True
+                
+        # Order not found
+        return False
     
     def mark_delivered(self, order_id, success=True):
         """Mark an order as delivered"""
