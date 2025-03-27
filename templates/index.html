@@ -587,46 +587,85 @@
         // Check if we have a scheduled route to display after page reload
         if (localStorage.getItem("scheduleSuccess") === "true") {
           try {
-            const scheduledRoute = JSON.parse(
-              localStorage.getItem("scheduledRoute")
-            );
-            if (scheduledRoute && scheduledRoute.route) {
-              // Clear the success flag
-              localStorage.removeItem("scheduleSuccess");
+            const scheduledRouteJson = localStorage.getItem("scheduledRoute");
+            if (!scheduledRouteJson) {
+              throw new Error("Missing scheduled route data");
+            }
 
-              // Auto-check the customer checkboxes based on the route
-              $("#selectAllCustomers").prop("checked", true);
-              $(".customer-checkbox").each(function () {
+            const scheduledRoute = JSON.parse(scheduledRouteJson);
+
+            if (
+              !scheduledRoute ||
+              !scheduledRoute.route ||
+              !Array.isArray(scheduledRoute.route) ||
+              scheduledRoute.route.length === 0
+            ) {
+              throw new Error("Invalid scheduled route data format");
+            }
+
+            // Clear the success flag
+            localStorage.removeItem("scheduleSuccess");
+            localStorage.removeItem("scheduledRoute");
+
+            // Auto-check the customer checkboxes based on the route
+            $("#selectAllCustomers").prop("checked", true);
+            $(".customer-checkbox").each(function () {
+              try {
                 // Get customer name from the checkbox
                 const customerName = $(this).val();
+                if (!customerName) return;
 
                 // Check if this customer is in the route
                 if (
-                  scheduledRoute.route.some((routeItem) =>
-                    routeItem.startsWith(customerName)
+                  scheduledRoute.route.some(
+                    (routeItem) =>
+                      routeItem &&
+                      typeof routeItem === "string" &&
+                      routeItem.startsWith(customerName)
                   )
                 ) {
                   $(this).prop("checked", true);
                 }
-              });
-
-              // Show loading indicator briefly
-              $("#routeLoadingIndicator").show();
-
-              // Display the optimized route after a short delay
-              setTimeout(function () {
-                $("#routeLoadingIndicator").hide();
-                displayOptimizedRoute(scheduledRoute);
-
-                // Scroll to the route result
-                $("html, body").animate(
-                  {
-                    scrollTop: $("#routeResult").offset().top - 50,
-                  },
-                  500
+              } catch (checkboxError) {
+                console.error(
+                  "Error checking customer checkbox:",
+                  checkboxError
                 );
-              }, 500);
-            }
+              }
+            });
+
+            // Show loading indicator briefly
+            $("#routeLoadingIndicator").show();
+
+            // Display the optimized route after a short delay
+            setTimeout(function () {
+              $("#routeLoadingIndicator").hide();
+              try {
+                displayOptimizedRoute(scheduledRoute);
+              } catch (displayError) {
+                console.error(
+                  "Error displaying scheduled route:",
+                  displayError
+                );
+                alert(
+                  "Error displaying the scheduled route. Please try again."
+                );
+              }
+
+              // Scroll to the route result
+              try {
+                if ($("#routeResult").is(":visible")) {
+                  $("html, body").animate(
+                    {
+                      scrollTop: $("#routeResult").offset().top - 50,
+                    },
+                    500
+                  );
+                }
+              } catch (scrollError) {
+                console.error("Error scrolling to route result:", scrollError);
+              }
+            }, 500);
           } catch (error) {
             console.error("Error processing scheduled route:", error);
             localStorage.removeItem("scheduleSuccess");
@@ -758,20 +797,35 @@
 
         // Function to display the optimized route
         function displayOptimizedRoute(route) {
+          // Check if route object is valid
+          if (!route || typeof route !== "object") {
+            console.error("Invalid route object:", route);
+            alert("Failed to display route - invalid data received.");
+            return;
+          }
+
           // Show the route details section
           $("#route-details").show();
           $("#routeResult").show();
 
           // Update the route summary
-          $("#routeSummary").text(
-            `Optimal delivery route with ${route.route.length - 1} stops`
-          );
+          if (route.route && Array.isArray(route.route)) {
+            $("#routeSummary").text(
+              `Optimal delivery route with ${route.route.length - 1} stops`
+            );
+          } else {
+            $("#routeSummary").text("Optimal delivery route");
+          }
 
           // Clear previous route details
           $("#route-stops").empty();
 
           // Add each stop to the route details
-          if (route.route && route.route.length > 0) {
+          if (
+            route.route &&
+            Array.isArray(route.route) &&
+            route.route.length > 0
+          ) {
             // Start populating the table
             var tableHtml = `
                   <table class="table">
@@ -862,153 +916,207 @@
             }
 
             // Initialize the map with the route
-            initMap(route);
+            try {
+              initMap(route);
+            } catch (error) {
+              console.error("Error initializing map:", error);
+            }
+          } else {
+            // Display message when no route is available
+            $("#route-stops").html(
+              '<div class="alert alert-warning">No valid route data available.</div>'
+            );
+            $("#distance-container").hide();
           }
         }
 
         // Initialize the map with the optimized route
         function initMap(routeData) {
+          // Validate route data
+          if (!routeData || typeof routeData !== "object") {
+            console.error("Invalid route data passed to initMap:", routeData);
+            return;
+          }
+
           // Clear any existing map
           if (window.map) {
-            window.map.remove();
+            try {
+              window.map.remove();
+            } catch (error) {
+              console.error("Error removing existing map:", error);
+            }
           }
 
           // Default center (Ahmedabad)
           const defaultCenter = [23.0225, 72.5714];
 
           // Initialize postman location (start location)
-          let postmanLocation;
+          let postmanLocation = defaultCenter;
+
           try {
             const startLocationName = "Start Location (Postman)";
-            const startIndex = routeData.route.findIndex((loc) =>
-              loc.includes(startLocationName)
-            );
 
-            if (
-              startIndex !== -1 &&
-              routeData.coordinates &&
-              routeData.coordinates[startIndex]
-            ) {
-              // Get coordinates from the route data
-              const rawCoords = routeData.coordinates[startIndex];
+            if (routeData.route && Array.isArray(routeData.route)) {
+              const startIndex = routeData.route.findIndex(
+                (loc) =>
+                  loc &&
+                  typeof loc === "string" &&
+                  loc.includes(startLocationName)
+              );
+
               if (
-                Array.isArray(rawCoords) &&
-                rawCoords.length === 2 &&
-                !isNaN(parseFloat(rawCoords[0])) &&
-                !isNaN(parseFloat(rawCoords[1]))
+                startIndex !== -1 &&
+                routeData.coordinates &&
+                Array.isArray(routeData.coordinates) &&
+                routeData.coordinates[startIndex]
               ) {
-                postmanLocation = [
-                  parseFloat(rawCoords[0]),
-                  parseFloat(rawCoords[1]),
-                ];
+                // Get coordinates from the route data
+                const rawCoords = routeData.coordinates[startIndex];
+                if (
+                  Array.isArray(rawCoords) &&
+                  rawCoords.length === 2 &&
+                  !isNaN(parseFloat(rawCoords[0])) &&
+                  !isNaN(parseFloat(rawCoords[1]))
+                ) {
+                  postmanLocation = [
+                    parseFloat(rawCoords[0]),
+                    parseFloat(rawCoords[1]),
+                  ];
+                } else {
+                  console.warn(
+                    "Invalid start location coordinates, using default"
+                  );
+                }
               } else {
                 console.warn(
-                  "Invalid start location coordinates, using default"
+                  "Start location not found in route, using default"
                 );
-                postmanLocation = defaultCenter;
               }
             } else {
-              console.warn("Start location not found in route, using default");
-              postmanLocation = defaultCenter;
+              console.warn(
+                "Route array is missing or invalid, using default location"
+              );
             }
           } catch (error) {
             console.error("Error initializing postman location", error);
-            postmanLocation = defaultCenter;
           }
 
           // Create the map
-          window.map = L.map("map").setView(postmanLocation, 13);
+          try {
+            window.map = L.map("map").setView(postmanLocation, 13);
 
-          // Add the tile layer (OpenStreetMap)
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          }).addTo(window.map);
+            // Add the tile layer (OpenStreetMap)
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            }).addTo(window.map);
+          } catch (error) {
+            console.error("Error creating map:", error);
+            return;
+          }
 
           // Prepare waypoints for the route
           const waypoints = [];
           const validLocations = [];
 
           // Process each location in the route
-          routeData.route.forEach((location, index) => {
-            if (routeData.coordinates && routeData.coordinates[index]) {
-              const coords = routeData.coordinates[index];
+          if (
+            routeData.route &&
+            Array.isArray(routeData.route) &&
+            routeData.coordinates &&
+            Array.isArray(routeData.coordinates)
+          ) {
+            routeData.route.forEach((location, index) => {
+              if (routeData.coordinates[index]) {
+                const coords = routeData.coordinates[index];
 
-              // Validate coordinates
-              if (
-                Array.isArray(coords) &&
-                coords.length === 2 &&
-                !isNaN(parseFloat(coords[0])) &&
-                !isNaN(parseFloat(coords[1]))
-              ) {
-                const lat = parseFloat(coords[0]);
-                const lng = parseFloat(coords[1]);
+                // Validate coordinates
+                if (
+                  location &&
+                  typeof location === "string" &&
+                  Array.isArray(coords) &&
+                  coords.length === 2 &&
+                  !isNaN(parseFloat(coords[0])) &&
+                  !isNaN(parseFloat(coords[1]))
+                ) {
+                  const lat = parseFloat(coords[0]);
+                  const lng = parseFloat(coords[1]);
 
-                // Add to waypoints for routing
-                waypoints.push(L.latLng(lat, lng));
+                  // Add to waypoints for routing
+                  waypoints.push(L.latLng(lat, lng));
 
-                // Store valid location data for markers
-                validLocations.push({
-                  name: location,
-                  coords: [lat, lng],
-                  area:
-                    routeData.areas && routeData.areas[index]
-                      ? routeData.areas[index]
-                      : "Unknown",
-                  address:
-                    routeData.addresses && routeData.addresses[index]
-                      ? routeData.addresses[index]
-                      : "Unknown",
-                  isStart: location.includes("Start Location"),
-                });
+                  // Store valid location data for markers
+                  validLocations.push({
+                    name: location,
+                    coords: [lat, lng],
+                    area:
+                      routeData.areas && routeData.areas[index]
+                        ? routeData.areas[index]
+                        : "Unknown",
+                    address:
+                      routeData.addresses && routeData.addresses[index]
+                        ? routeData.addresses[index]
+                        : "Unknown",
+                    isStart: location.includes("Start Location"),
+                  });
+                }
               }
-            }
-          });
+            });
+          } else {
+            console.warn("No valid route or coordinates data for waypoints");
+          }
 
           // Add markers for each valid location
           validLocations.forEach((location, index) => {
-            // Create custom marker icon
-            let icon;
+            try {
+              // Create custom marker icon
+              let icon;
 
-            if (location.isStart) {
-              // Special icon for start location
-              icon = L.divIcon({
-                className: "custom-div-icon",
-                html: `<div style="background-color:#38761d; color:white; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px; font-weight:bold;">S</div>`,
-                iconSize: [30, 30],
-                iconAnchor: [15, 15],
-              });
-            } else {
-              // Numbered icons for other stops
-              icon = L.divIcon({
-                className: "custom-div-icon",
-                html: `<div style="background-color:#2c88d9; color:white; width:25px; height:25px; border-radius:50%; text-align:center; line-height:25px; font-weight:bold;">${index}</div>`,
-                iconSize: [25, 25],
-                iconAnchor: [12, 12],
-              });
-            }
+              if (location.isStart) {
+                // Special icon for start location
+                icon = L.divIcon({
+                  className: "custom-div-icon",
+                  html: `<div style="background-color:#38761d; color:white; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px; font-weight:bold;">S</div>`,
+                  iconSize: [30, 30],
+                  iconAnchor: [15, 15],
+                });
+              } else {
+                // Numbered icons for other stops
+                icon = L.divIcon({
+                  className: "custom-div-icon",
+                  html: `<div style="background-color:#2c88d9; color:white; width:25px; height:25px; border-radius:50%; text-align:center; line-height:25px; font-weight:bold;">${index}</div>`,
+                  iconSize: [25, 25],
+                  iconAnchor: [12, 12],
+                });
+              }
 
-            // Create marker with the icon
-            const marker = L.marker(location.coords, { icon }).addTo(
-              window.map
-            );
+              // Create marker with the icon
+              const marker = L.marker(location.coords, { icon }).addTo(
+                window.map
+              );
 
-            // Add popup with location info
-            marker.bindPopup(`
-              <strong>${location.name}</strong><br>
-              Area: ${location.area}<br>
-              Address: ${location.address}
-            `);
+              // Store marker reference on the location object for later use
+              location.marker = marker;
 
-            // Open popup for start location
-            if (location.isStart && marker.openPopup) {
-              marker.openPopup();
+              // Add popup with location info
+              marker.bindPopup(`
+                <strong>${location.name}</strong><br>
+                Area: ${location.area}<br>
+                Address: ${location.address}
+              `);
+
+              // Open popup for start location
+              if (location.isStart && marker.openPopup) {
+                marker.openPopup();
+              }
+            } catch (error) {
+              console.error("Error creating marker:", error);
             }
           });
 
           // Try to create a route with Leaflet Routing Machine
-          try {
-            if (waypoints.length >= 2) {
+          if (waypoints.length >= 2) {
+            try {
               // Create the route
               const routeControl = L.Routing.control({
                 waypoints: waypoints,
@@ -1028,50 +1136,65 @@
 
               // Add arrow decorators to the route
               routeControl.on("routesfound", function (e) {
-                const routes = e.routes;
+                try {
+                  const routes = e.routes;
 
-                if (routes && routes.length > 0) {
-                  // Get the route coordinates
-                  const routeCoordinates = routes[0].coordinates;
+                  if (routes && routes.length > 0) {
+                    // Get the route coordinates
+                    const routeCoordinates = routes[0].coordinates;
 
-                  // Create a polyline from the coordinates
-                  const polyline = L.polyline(routeCoordinates);
+                    // Create a polyline from the coordinates
+                    const polyline = L.polyline(routeCoordinates);
 
-                  // Add arrow decorators
-                  const decorator = L.polylineDecorator(polyline, {
-                    patterns: [
-                      {
-                        offset: 25,
-                        repeat: 100,
-                        symbol: L.Symbol.arrowHead({
-                          pixelSize: 15,
-                          polygon: false,
-                          pathOptions: {
-                            stroke: true,
-                            color: "#22a",
-                            weight: 3,
-                          },
-                        }),
-                      },
-                    ],
-                  }).addTo(window.map);
+                    // Add arrow decorators
+                    const decorator = L.polylineDecorator(polyline, {
+                      patterns: [
+                        {
+                          offset: 25,
+                          repeat: 100,
+                          symbol: L.Symbol.arrowHead({
+                            pixelSize: 15,
+                            polygon: false,
+                            pathOptions: {
+                              stroke: true,
+                              color: "#22a",
+                              weight: 3,
+                            },
+                          }),
+                        },
+                      ],
+                    }).addTo(window.map);
 
-                  // Store for cleanup
-                  window.routeDecorator = decorator;
+                    // Store for cleanup
+                    window.routeDecorator = decorator;
+                  }
+                } catch (error) {
+                  console.error("Error adding route decorators:", error);
                 }
               });
-            } else {
-              // Fallback to simple polyline if not enough waypoints
-              console.warn("Not enough valid waypoints for routing");
+            } catch (error) {
+              console.error("Error creating route:", error);
+              // Fallback to simple polyline
+              try {
+                if (waypoints.length > 0) {
+                  L.polyline(waypoints, { color: "blue" }).addTo(window.map);
+                }
+              } catch (innerError) {
+                console.error("Error creating fallback polyline:", innerError);
+              }
+            }
+          } else {
+            // Fallback to simple polyline if not enough waypoints
+            console.warn(
+              "Not enough valid waypoints for routing, need at least 2, got:",
+              waypoints.length
+            );
+            try {
               if (waypoints.length > 0) {
                 L.polyline(waypoints, { color: "blue" }).addTo(window.map);
               }
-            }
-          } catch (error) {
-            console.error("Error creating route:", error);
-            // Fallback to simple polyline
-            if (waypoints.length > 0) {
-              L.polyline(waypoints, { color: "blue" }).addTo(window.map);
+            } catch (error) {
+              console.error("Error creating fallback polyline:", error);
             }
           }
 
@@ -1082,8 +1205,12 @@
             } catch (error) {
               console.error("Error fitting bounds:", error);
               // Fallback to center on first waypoint
-              if (waypoints[0]) {
-                window.map.setView(waypoints[0], 12);
+              try {
+                if (waypoints[0]) {
+                  window.map.setView(waypoints[0], 12);
+                }
+              } catch (innerError) {
+                console.error("Error with fallback centering:", innerError);
               }
             }
           }
@@ -1102,18 +1229,22 @@
             .on("click", function () {
               // Fly to the start location
               if (postmanLocation && window.map) {
-                window.map.flyTo(postmanLocation, 15);
+                try {
+                  window.map.flyTo(postmanLocation, 15);
 
-                // Find and open the start marker popup
-                validLocations.forEach((location) => {
-                  if (
-                    location.isStart &&
-                    location.marker &&
-                    typeof location.marker.openPopup === "function"
-                  ) {
-                    location.marker.openPopup();
-                  }
-                });
+                  // Find and open the start marker popup
+                  validLocations.forEach((location) => {
+                    if (
+                      location.isStart &&
+                      location.marker &&
+                      typeof location.marker.openPopup === "function"
+                    ) {
+                      location.marker.openPopup();
+                    }
+                  });
+                } catch (error) {
+                  console.error("Error returning to start:", error);
+                }
               }
             });
         }
@@ -1291,6 +1422,12 @@
 
         // Function to schedule orders for today
         function scheduleOrdersForToday(orderIds) {
+          // Validate order IDs
+          if (!orderIds || (Array.isArray(orderIds) && orderIds.length === 0)) {
+            alert("No orders selected for scheduling.");
+            return;
+          }
+
           // Show loading indicator
           $("#routeLoadingIndicator").show();
 
@@ -1298,12 +1435,19 @@
           const formData = new FormData();
 
           // Add each order ID
-          if (Array.isArray(orderIds)) {
-            orderIds.forEach((id) => {
-              formData.append("selected_orders[]", id);
-            });
-          } else {
-            formData.append("selected_orders[]", orderIds);
+          try {
+            if (Array.isArray(orderIds)) {
+              orderIds.forEach((id) => {
+                if (id) formData.append("selected_orders[]", id);
+              });
+            } else {
+              formData.append("selected_orders[]", orderIds);
+            }
+          } catch (error) {
+            console.error("Error preparing form data:", error);
+            $("#routeLoadingIndicator").hide();
+            alert("Error preparing order data. Please try again.");
+            return;
           }
 
           // Send the AJAX request
@@ -1316,27 +1460,62 @@
             success: function (response) {
               $("#routeLoadingIndicator").hide();
 
-              if (response.success) {
+              if (response && response.success) {
                 // Show success message
-                alert(response.message);
+                alert(response.message || "Orders scheduled successfully");
 
                 // Scroll to the route optimization section
-                $("html, body").animate(
-                  {
-                    scrollTop: $("#routeOptimizationForm").offset().top - 50,
-                  },
-                  500
-                );
+                try {
+                  $("html, body").animate(
+                    {
+                      scrollTop: $("#routeOptimizationForm").offset().top - 50,
+                    },
+                    500
+                  );
+                } catch (error) {
+                  console.error(
+                    "Error scrolling to route optimization form:",
+                    error
+                  );
+                }
 
-                // Reload the page to reflect the updated orders, but keep the response data to use after reload
-                localStorage.setItem(
-                  "scheduledRoute",
-                  JSON.stringify(response.optimized_route)
-                );
-                localStorage.setItem("scheduleSuccess", "true");
+                // Validate optimized route before storing
+                if (
+                  response.optimized_route &&
+                  typeof response.optimized_route === "object" &&
+                  response.optimized_route.route &&
+                  Array.isArray(response.optimized_route.route) &&
+                  response.optimized_route.route.length > 0
+                ) {
+                  // Store route data for persistence across page reloads
+                  try {
+                    localStorage.setItem(
+                      "scheduledRoute",
+                      JSON.stringify(response.optimized_route)
+                    );
+                    localStorage.setItem("scheduleSuccess", "true");
+                  } catch (storageError) {
+                    console.error(
+                      "Error storing route in localStorage:",
+                      storageError
+                    );
+                  }
 
-                // Update the route optimization view with the new route
-                displayOptimizedRoute(response.optimized_route);
+                  // Update the route optimization view with the new route
+                  try {
+                    displayOptimizedRoute(response.optimized_route);
+                  } catch (displayError) {
+                    console.error(
+                      "Error displaying optimized route:",
+                      displayError
+                    );
+                  }
+                } else {
+                  console.error(
+                    "Invalid optimized route in response:",
+                    response.optimized_route
+                  );
+                }
 
                 // Uncheck all schedule checkboxes
                 $(".schedule-checkbox").prop("checked", false);
@@ -1347,15 +1526,24 @@
                   location.reload();
                 }, 2000);
               } else {
-                alert("Error: " + response.message);
+                let errorMsg =
+                  "Unknown error occurred while scheduling orders.";
+                if (response && response.message) {
+                  errorMsg = response.message;
+                }
+                alert("Error: " + errorMsg);
               }
             },
             error: function (xhr) {
               $("#routeLoadingIndicator").hide();
 
               let errorMessage = "An error occurred while scheduling orders.";
-              if (xhr.responseJSON && xhr.responseJSON.message) {
-                errorMessage = xhr.responseJSON.message;
+              try {
+                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                  errorMessage = xhr.responseJSON.message;
+                }
+              } catch (error) {
+                console.error("Error parsing error response:", error);
               }
 
               alert("Error: " + errorMessage);
