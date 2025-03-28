@@ -1,0 +1,249 @@
+.pending-orders {
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.create-order-btn,
+.optimize-route-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.create-order-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.optimize-route-btn {
+  background-color: #2196f3;
+  color: white;
+}
+
+.create-order-btn:hover {
+  background-color: #45a049;
+}
+
+.optimize-route-btn:hover {
+  background-color: #1976d2;
+}
+
+.optimize-route-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.orders-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.order-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  background: white;
+  transition: all 0.2s;
+}
+
+.order-card.selected {
+  border-color: #2196f3;
+  box-shadow: 0 0 0 2px #2196f3;
+}
+
+.order-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.order-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.order-details {
+  margin-bottom: 15px;
+}
+
+.order-details p {
+  margin: 5px 0;
+  color: #666;
+}
+
+.order-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.delivered-btn,
+.failed-btn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.delivered-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.failed-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.delivered-btn:hover {
+  background-color: #45a049;
+}
+
+.failed-btn:hover {
+  background-color: #da190b;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+/* Create Order Modal Styles */
+.create-order-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.button-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.button-group button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.button-group button[type="button"] {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.button-group button[type="submit"] {
+  background-color: #4caf50;
+  color: white;
+}
+
+.button-group button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Map Styles */
+.map-container {
+  height: 500px;
+  margin-top: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.custom-marker {
+  background-color: #2196f3;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+}
+
+.custom-marker.final {
+  background-color: #4caf50;
+}
+
+.delivery-popup {
+  padding: 10px;
+}
+
+.delivery-popup h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.delivery-popup p {
+  margin: 5px 0;
+  color: #666;
+}
