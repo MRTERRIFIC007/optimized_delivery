@@ -1,131 +1,364 @@
-# Delivery Prediction System
+# Delivery Prediction System API Documentation
 
-This system predicts optimal delivery times for customers based on historical delivery data, manages pending orders, visualizes delivery routes, and provides an AI-powered delivery assistant.
+A sophisticated backend system for predicting optimal delivery times, optimizing delivery routes, and providing real-time data on weather, traffic, and local events in Ahmedabad.
 
-## Features
+## Table of Contents
 
-1. **Delivery Time Prediction**:
+1. [Overview](#overview)
+2. [Installation](#installation)
+3. [API Endpoints](#api-endpoints)
+4. [Data Structures](#data-structures)
+5. [Real-Time Data](#real-time-data)
+6. [Authentication](#authentication)
 
-   - Analyzes historical delivery data to predict the best times to deliver packages
-   - Suggests optimal delivery times based on past success rates
-   - Adjusts predictions based on day of the week and customer history
-   - Filters out times that have already passed for today
+## Overview
 
-2. **Order Management**:
+The Delivery Prediction System is designed to optimize the delivery workflow by predicting the best times for successful deliveries based on historical data and real-time conditions. The system analyzes patterns from past deliveries and combines them with current weather, traffic, and festival/event data to provide accurate predictions and optimal delivery routes.
 
-   - View pending orders
-   - Add new orders with fixed customer-area mapping
-   - Mark orders as delivered or failed
-   - Track delivery status and failure rates
+## Installation
 
-3. **Route Optimization & Visualization**:
+```bash
+# Clone the repository
+git clone <repository-url>
+cd delivery-prediction-system
 
-   - Interactive map using Leaflet
-   - Real-time route optimization and visualization
-   - Turn-by-turn directions with directional arrows
-   - Detailed markers showing delivery sequence
-   - Start point visualization with the postman location
-   - Address geocoding for accurate location display
+# Install dependencies
+pip install -r requirements.txt
 
-4. **AI-Powered Delivery Assistant**:
+# Set environment variables
+export FLASK_SECRET_KEY=your_secret_key
+export PERPLEXITY_API_KEY=your_api_key  # Optional for real-time data
 
-   - Natural language chatbot interface using Perplexity AI
-   - Contextual awareness of current deliveries and routes
-   - Ability to answer questions about customer preferences
-   - Suggestions for optimal delivery times and routes
-   - Fallback to comprehensive mock responses when needed
+# Run the application
+python -m app --port 5002
+```
 
-5. **Web UI**:
-   - Modern, responsive interface with Bootstrap
-   - Real-time predictions and order management
-   - Interactive route visualization
-   - Comprehensive dashboard view of all system features
+## API Endpoints
 
-## Setup and Usage
+### Main Dashboard
 
-1. Install dependencies:
+- **GET /** - Main dashboard page
+  - Returns the HTML for the main dashboard with real-time data and pending orders
 
-   ```
-   pip install -r requirements.txt
-   ```
+### Delivery Predictions
 
-2. Set up environment variables:
-
-   Create a `.env` file with the following variables:
-
-   ```
-   PERPLEXITY_API_KEY=your_api_key_here
-   FLASK_SECRET_KEY=your_secret_key_here
-   ```
-
-3. Run the application:
-
-   ```
-   python app.py --port=5000
-   ```
-
-4. Open your browser and go to:
-   ```
-   http://localhost:5000
-   ```
-
-## How It Works
-
-### Prediction Model
-
-The system analyzes the dataset to find patterns in successful deliveries based on:
-
-- Customer name
-- Day of the week
-- Time of day
-- Area of delivery
-
-It calculates success rates for each combination and recommends time slots with the highest success probability.
+- **POST /predict** - Predict optimal delivery times for a specific person
+  - Request parameters:
+    - `name` (string): Customer name
+    - `day` (string, optional): Day of the week (defaults to current day)
+  - Response format:
+    ```json
+    {
+      "name": "Customer Name",
+      "day": "Monday",
+      "optimal_times": [
+        { "time": "2 PM", "failure_rate": 3.5 },
+        { "time": "4 PM", "failure_rate": 4.2 },
+        { "time": "11 AM", "failure_rate": 5.1 }
+      ],
+      "real_time_factors": {
+        "traffic": {
+          "congestion_level": 7,
+          "status": "Heavy traffic during peak hours"
+        },
+        "weather": {
+          "conditions": "Sunny",
+          "temperature": 32,
+          "precipitation": 0
+        },
+        "festival": {
+          "name": "Cultural Fair",
+          "impact": "Moderate"
+        }
+      }
+    }
+    ```
 
 ### Order Management
 
-- Pending orders are stored in a JSON file (`pending_orders.json`)
-- Each customer is assigned to a fixed area for consistency
-- New orders automatically use the correct area based on the customer
-- When orders are marked as delivered, they're removed from pending and added to the dataset
+- **POST /add_order** - Add a new order to the pending queue
 
-### Route Visualization
+  - Request parameters:
+    - `name` (string): Customer name
+    - `delivery_day` (string): Day for delivery
+    - `package_size` (string, optional): Package size (Small, Medium, Large)
+  - Response format:
+    ```json
+    {
+      "success": true,
+      "order_id": 10001
+    }
+    ```
 
-- Utilizes Leaflet for interactive map visualization
-- Implements Leaflet Routing Machine for real road-based routes
-- Shows directional arrows with Polyline Decorator
-- Provides clear markers for each delivery point
-- Falls back to direct polylines when routing is unavailable
-- Includes customer information and delivery details in popups
+- **GET /mark_delivered/<order_id>** - Mark an order as delivered
+  - URL parameters:
+    - `order_id` (integer): ID of the order to mark as delivered
+  - Query parameters:
+    - `success` (string, optional): "true" or "false" to indicate delivery success (default: "true")
+  - Response: Redirects to the main dashboard
 
-### AI Delivery Assistant
+### Route Optimization
 
-- Built using the Perplexity API (sonar model)
-- Provides natural language interface for postmen
-- Answers questions about deliveries, routes, and customers
-- Integrates context from current delivery data and optimized routes
-- Offers detailed information about optimal delivery times and customer preferences
-- Implements robust fallback to mock responses when API is unavailable
+- **POST /optimize_route** - Optimize delivery route for selected customers
+  - Request parameters:
+    - `selected_customers[]` (array): List of customer names to include in the route
+  - Response format:
+    ```json
+    {
+      "route": [
+        "Start Location (Postman)",
+        "Customer1",
+        "Customer2",
+        "Customer3"
+      ],
+      "total_distance": "15.3 km",
+      "total_duration": "35 mins",
+      "details": [
+        {
+          "from": "Start Location (Postman)",
+          "from_address": "Iscon Center, Shivranjani Cross Road, Satellite, Ahmedabad, India",
+          "to": "Customer1",
+          "to_address": "Customer1 Address",
+          "distance": "3.2 km",
+          "duration": "10 mins",
+          "traffic_conditions": "Normal"
+        }
+        // Additional route legs...
+      ],
+      "weather_conditions": "Sunny, 31°C",
+      "traffic_summary": "Heavy traffic in several areas",
+      "festival_impact": "No festivals or events affecting deliveries today"
+    }
+    ```
 
-## Files
+### Real-Time Data
 
-- `app.py`: Flask web application
-- `delivery_predictor.py`: Prediction model and order management
-- `chatbot_assistant.py`: AI delivery assistant integration
-- `dataset.csv`: Historical delivery data
-- `pending_orders.json`: Current pending orders
-- `templates/index.html`: Web UI template with map and chatbot integration
-- `.env`: Environment variables for API keys (not included in repository)
+- **GET /real_time_data** - Get real-time data for traffic, weather, and festivals
+  - Query parameters:
+    - `type` (string): Type of data to retrieve ('traffic', 'weather', 'festivals', or 'all')
+    - `area` (string, optional): Specific area in Ahmedabad to get data for
+  - Response format for `type=all`:
+    ```json
+    {
+      "weather": {
+        "temperature": {
+          "current": 31,
+          "feels_like": 33,
+          "units": "Celsius"
+        },
+        "conditions": "Sunny",
+        "precipitation": {
+          "chance": 10,
+          "type": "None"
+        },
+        "humidity": 65,
+        "wind": {
+          "speed": 12,
+          "direction": "NW",
+          "units": "km/h"
+        },
+        "warnings": ["Heat advisory: Stay hydrated"]
+      },
+      "traffic": {
+        "Satellite": {
+          "congestion_level": 7,
+          "delay_minutes": 15,
+          "status": "Heavy traffic",
+          "peak_areas": ["Shrivranjani Junction", "Iscon Cross Roads"]
+        },
+        // Other areas...
+        "overall_city_congestion": 6,
+        "status": "Moderate congestion in several areas"
+      },
+      "festivals": {
+        "has_festival_today": true,
+        "festivals": [
+          {
+            "name": "Food Festival",
+            "date": "2023-05-25",
+            "time": "16:00 - 22:00",
+            "location": "Riverfront",
+            "crowd_size": "Large",
+            "traffic_impact": "Moderate",
+            "affected_areas": ["Satellite", "Navrangpura"]
+          }
+        ]
+      },
+      "weather_summary": "Sunny, 31°C, Heat advisory: Stay hydrated",
+      "traffic_summary": "Heavy traffic in several areas, particularly in Satellite (7/10) and Navrangpura (8/10)",
+      "festival_summary": "Event affecting deliveries today: Food Festival at Riverfront (Moderate impact on Satellite, Navrangpura)",
+      "timestamp": "2023-05-25 14:30:45"
+    }
+    ```
 
-## Security
+### Geocoding
 
-- API keys are stored in environment variables
-- Session management for maintaining route optimization context
-- Error handling for all external API calls
+- **POST /geocode** - Geocode an address to get coordinates
+  - Request parameters:
+    - `address` (string): Address to geocode
+  - Response format:
+    ```json
+    {
+      "lat": 23.0225,
+      "lon": 72.5714,
+      "display_name": "Ahmedabad, Gujarat, India"
+    }
+    ```
 
-## Future Enhancements
+### Chatbot Assistant
 
-- Voice interface for hands-free operation
-- Integration with real traffic data for more accurate route estimation
-- Mobile application for on-the-go delivery management
-- Expanded AI capabilities for predictive delivery planning
+- **POST /chat** - Process a chat message from the postman
+  - Request parameters (JSON):
+    - `message` (string): User's message to the chatbot
+  - Response format:
+    ```json
+    {
+      "response": "The optimal delivery times for Kabir on Monday are 2 PM (3.5% failure rate), 11 AM (4.2% failure rate), and 4 PM (5.1% failure rate). Currently, there is heavy traffic in Chandkheda area which might affect your delivery."
+    }
+    ```
+
+## Data Structures
+
+### Customer Data
+
+The system maintains fixed mappings of customers to their addresses and areas in Ahmedabad:
+
+```json
+{
+  "customer_addresses": {
+    "Aditya": "Near Jodhpur Cross Road, Satellite, Ahmedabad - 380015",
+    "Vivaan": "Near Bopal Cross Road, Bopal, Ahmedabad - 380058",
+    "Aarav": "Near Vastrapur Lake, Vastrapur, Ahmedabad - 380015",
+    "Meera": "Opposite Dharnidhar Derasar, Paldi, Ahmedabad - 380007",
+    "Diya": "Near Thaltej Cross Road, S.G. Highway, Ahmedabad - 380054",
+    "Riya": "Near Navrangpura AMTS Bus Stop, Navrangpura, Ahmedabad - 380009",
+    "Ananya": "Opposite Rajpath Club, Bodakdev, Ahmedabad - 380054",
+    "Aryan": "Near Oganaj Gam, Gota, Ahmedabad - 382481",
+    "Ishaan": "Opposite Rambaug Police Station, Maninagar, Ahmedabad - 380008",
+    "Kabir": "Near Chandkheda Gam Bus Stop, Chandkheda, Ahmedabad - 382424"
+  },
+  "customer_areas": {
+    "Aditya": "Satellite",
+    "Vivaan": "Bopal",
+    "Aarav": "Vastrapur",
+    "Meera": "Paldi",
+    "Diya": "Thaltej",
+    "Riya": "Navrangpura",
+    "Ananya": "Bodakdev",
+    "Aryan": "Gota",
+    "Ishaan": "Maninagar",
+    "Kabir": "Chandkheda"
+  }
+}
+```
+
+### Order Structure
+
+Orders in the system have the following structure:
+
+```json
+{
+  "order_id": 10001,
+  "name": "Kabir",
+  "delivery_day": "Monday",
+  "area": "Chandkheda",
+  "address": "Near Chandkheda Gam Bus Stop, Chandkheda, Ahmedabad - 382424",
+  "package_size": "Medium",
+  "status": "Pending",
+  "created_at": "2023-05-24 09:30:15"
+}
+```
+
+## Real-Time Data
+
+The system provides three types of real-time data:
+
+### Weather Data
+
+Weather data includes current temperature, conditions, precipitation chance, and any warnings:
+
+```json
+{
+  "temperature": {
+    "current": 31,
+    "feels_like": 33,
+    "units": "Celsius"
+  },
+  "conditions": "Sunny",
+  "precipitation": {
+    "chance": 10,
+    "type": "None"
+  },
+  "humidity": 65,
+  "wind": {
+    "speed": 12,
+    "direction": "NW",
+    "units": "km/h"
+  },
+  "warnings": ["Heat advisory: Stay hydrated"]
+}
+```
+
+### Traffic Data
+
+Traffic data includes congestion levels for different areas and overall city status:
+
+```json
+{
+  "Satellite": {
+    "congestion_level": 7,
+    "delay_minutes": 15,
+    "status": "Heavy traffic",
+    "peak_areas": ["Shrivranjani Junction", "Iscon Cross Roads"]
+  },
+  "Navrangpura": {
+    "congestion_level": 8,
+    "delay_minutes": 20,
+    "status": "Congested due to office hours",
+    "peak_areas": ["Law Garden", "Gujarat College"]
+  },
+  // Other areas...
+  "overall_city_congestion": 6,
+  "status": "Moderate congestion in several areas"
+}
+```
+
+Traffic congestion is rated on a scale of 1-10:
+
+- 1-3: Light traffic
+- 4-6: Normal traffic
+- 7-8: Heavy traffic
+- 9-10: Severe congestion
+
+### Festival Data
+
+Festival data includes information about events that might affect deliveries:
+
+```json
+{
+  "has_festival_today": true,
+  "festivals": [
+    {
+      "name": "Food Festival",
+      "date": "2023-05-25",
+      "time": "16:00 - 22:00",
+      "location": "Riverfront",
+      "crowd_size": "Large",
+      "traffic_impact": "Moderate",
+      "affected_areas": ["Satellite", "Navrangpura"]
+    }
+  ]
+}
+```
+
+## Authentication
+
+The API uses Flask's session for maintaining state, such as the last route optimization. For production use, consider implementing proper authentication with JWT or OAuth.
+
+The Perplexity API is used for fetching real-time data with a valid API key. If not provided, the system falls back to simulated data using the `_generate_mock_real_time_data` method.
+
+```python
+# Environment variables needed
+FLASK_SECRET_KEY=your_secret_key
+PERPLEXITY_API_KEY=your_api_key  # Optional
+```
